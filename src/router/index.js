@@ -30,6 +30,11 @@ const router = createRouter({
           name: 'evaluate',
           component: () => import('../views/EvaluationView.vue'),
         },
+        {
+          path: 'schema',
+          name: 'schema',
+          component: () => import('../views/SchemaView.vue'),
+        },
       ],
     },
   ],

@@ -21,6 +21,14 @@
       >
         <font-awesome-icon :icon="['fas', 'scale-balanced']" />
       </router-link>
+      <router-link
+        to="/schema"
+        class="sidebar-btn"
+        :class="{ active: $route.name === 'schema' }"
+        v-tooltip.right="'Schema Editor'"
+      >
+        <font-awesome-icon :icon="['fas', 'puzzle-piece']" />
+      </router-link>
     </div>
     <div class="flex flex-col items-center pb-3 gap-1">
       <button class="sidebar-btn" v-tooltip.right="'Settings'" @click="settingsVisible = true">
