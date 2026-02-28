@@ -1,0 +1,26 @@
+@import "tailwindcss";
+
+@theme {
+  --color-yale-50: #e6edf5;
+  --color-yale-100: #b3c7e0;
+  --color-yale-200: #809fcc;
+  --color-yale-300: #4d78b7;
+  --color-yale-400: #2659a3;
+  --color-yale-500: #00356b;
+  --color-yale-600: #002e5c;
+  --color-yale-700: #00264d;
+  --color-yale-800: #001f3e;
+  --color-yale-900: #00172f;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: #f8f9fa;
+  color: #333;
+}
+
+#app {
+  height: 100vh;
+  overflow: hidden;
+}
