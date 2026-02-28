@@ -2,7 +2,7 @@
   <div class="relative">
     <button
       class="flex items-center gap-1.5 px-2.5 py-1 text-sm rounded hover:bg-gray-100 transition-colors"
-      title="Load built-in sample annotation data for demonstration"
+      v-tooltip.bottom="'Load sample data'"
       @click="toggle"
     >
       <font-awesome-icon :icon="['fas', 'flask']" class="text-xs text-gray-500" />

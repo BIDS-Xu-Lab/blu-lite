@@ -7,7 +7,7 @@
         :value="uiStore.searchQuery"
         @input="uiStore.setSearch($event.target.value)"
         placeholder="Search..."
-        title="Highlight matching text across the document"
+        v-tooltip.bottom="'Highlight matching text'"
         class="pl-7 pr-2 py-1 text-sm border border-gray-200 rounded w-44 focus:outline-none focus:border-yale-300 focus:ring-1 focus:ring-yale-200"
       />
     </span>

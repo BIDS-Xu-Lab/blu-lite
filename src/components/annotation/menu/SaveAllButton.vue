@@ -5,7 +5,7 @@
       ? 'text-gray-300 cursor-not-allowed'
       : 'hover:bg-gray-100 text-gray-700'"
     :disabled="isDisabled"
-    title="Save all modified files to disk"
+    v-tooltip.bottom="'Save all modified files'"
     @click="handleSaveAll"
   >
     <font-awesome-icon :icon="['fas', 'floppy-disk']" class="text-xs" />

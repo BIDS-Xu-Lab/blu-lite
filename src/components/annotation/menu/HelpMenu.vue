@@ -2,7 +2,7 @@
   <div class="relative">
     <button
       class="flex items-center gap-1.5 px-2.5 py-1 text-sm rounded hover:bg-gray-100 transition-colors"
-      title="Help resources and documentation"
+      v-tooltip.bottom="'Help & documentation'"
       @click="toggle"
     >
       <font-awesome-icon :icon="['fas', 'circle-question']" class="text-xs text-gray-500" />

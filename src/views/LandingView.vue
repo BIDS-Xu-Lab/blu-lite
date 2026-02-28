@@ -34,13 +34,13 @@
             <font-awesome-icon :icon="['fas', 'highlighter']" class="mr-2" />
             Start Annotating
           </router-link>
-          <router-link
+          <!-- <router-link
             to="/evaluate"
             class="px-6 py-3 border border-yale-200 text-yale-500 rounded-lg hover:bg-yale-50 transition-colors font-medium"
           >
             <font-awesome-icon :icon="['fas', 'scale-balanced']" class="mr-2" />
             Evaluate
-          </router-link>
+          </router-link> -->
         </div>
       </div>
 

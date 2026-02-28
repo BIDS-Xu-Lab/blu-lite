@@ -1,7 +1,7 @@
 <template>
   <button
     class="flex items-center gap-1.5 px-2.5 py-1 text-sm rounded hover:bg-gray-100 transition-colors"
-    title="Auto-annotate current document"
+    v-tooltip.bottom="'Auto-annotate document'"
     @click="handleAutoAnnotate"
   >
     <font-awesome-icon :icon="['fas', 'wand-magic-sparkles']" class="text-xs text-gray-500" />

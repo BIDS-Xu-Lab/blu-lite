@@ -1,7 +1,7 @@
 <template>
   <aside class="flex flex-col justify-between bg-yale-500 text-white h-full">
     <div class="flex flex-col items-center pt-3 gap-1">
-      <router-link to="/" class="sidebar-btn mb-2" title="Home">
+      <router-link to="/" class="sidebar-btn mb-2" v-tooltip.right="'Home'">
         <span class="text-lg font-bold">B</span>
       </router-link>
       <div class="w-6 border-t border-yale-300 opacity-40 mb-1"></div>
@@ -9,7 +9,7 @@
         to="/annotate"
         class="sidebar-btn"
         :class="{ active: $route.name === 'annotate' }"
-        title="Annotation"
+        v-tooltip.right="'Annotation'"
       >
         <font-awesome-icon :icon="['fas', 'highlighter']" />
       </router-link>
@@ -17,16 +17,16 @@
         to="/evaluate"
         class="sidebar-btn"
         :class="{ active: $route.name === 'evaluate' }"
-        title="Evaluation"
+        v-tooltip.right="'Evaluation'"
       >
         <font-awesome-icon :icon="['fas', 'scale-balanced']" />
       </router-link>
     </div>
     <div class="flex flex-col items-center pb-3 gap-1">
-      <button class="sidebar-btn" title="Settings" @click="settingsVisible = true">
+      <button class="sidebar-btn" v-tooltip.right="'Settings'" @click="settingsVisible = true">
         <font-awesome-icon :icon="['fas', 'gear']" />
       </button>
-      <button class="sidebar-btn" title="User Profile">
+      <button class="sidebar-btn" v-tooltip.right="'User Profile'">
         <font-awesome-icon :icon="['fas', 'user']" />
       </button>
     </div>
