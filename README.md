@@ -65,7 +65,3 @@ src/
   utils/          # colors, validators, fileConverters
   samples/        # built-in demo schema + annotated document
 ```
-
-## License
-
-MIT
