@@ -23,7 +23,7 @@
       </router-link>
     </div>
     <div class="flex flex-col items-center pb-3 gap-1">
-      <button class="sidebar-btn" title="Settings">
+      <button class="sidebar-btn" title="Settings" @click="settingsVisible = true">
         <font-awesome-icon :icon="['fas', 'gear']" />
       </button>
       <button class="sidebar-btn" title="User Profile">
@@ -31,7 +31,16 @@
       </button>
     </div>
   </aside>
+
+  <SettingsDrawer v-model:visible="settingsVisible" />
 </template>
+
+<script setup>
+import { ref } from 'vue'
+import SettingsDrawer from './SettingsDrawer.vue'
+
+const settingsVisible = ref(false)
+</script>
 
 <style scoped>
 .sidebar-btn {
