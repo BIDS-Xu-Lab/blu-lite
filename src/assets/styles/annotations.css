@@ -78,6 +78,7 @@
 }
 
 .search-highlight {
-  background-color: #fff3cd;
-  border-bottom: 2px solid #ffc107;
+  background-color: #fef08a;
+  border-bottom: 2px solid #eab308;
+  border-radius: 2px;
 }
