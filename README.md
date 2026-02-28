@@ -23,7 +23,7 @@ bun install
 bun run dev       # http://localhost:5173
 ```
 
-Or open the hosted version and click **Load Files** to pick a local directory.
+Or open the **[live version](https://bids-xu-lab.github.io/blu-lite/)** and click **Load Files** to pick a local directory.
 
 ## Schema Format
 
