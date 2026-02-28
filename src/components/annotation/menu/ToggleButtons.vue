@@ -1,5 +1,8 @@
 <template>
   <div class="flex items-center gap-1">
+    <span class="text-sm mr-1">
+      Display:
+    </span>
     <button
       class="flex items-center gap-1 px-2 py-1 text-xs rounded transition-colors"
       :class="uiStore.showAttributes ? 'bg-yale-50 text-yale-500' : 'text-gray-500 hover:bg-gray-100'"
@@ -7,7 +10,7 @@
       title="Show attributes"
     >
       <font-awesome-icon :icon="['fas', 'tags']" class="text-[10px]" />
-      <span>Attrs</span>
+      <span>Attribute</span>
     </button>
     <button
       class="flex items-center gap-1 px-2 py-1 text-xs rounded transition-colors"
@@ -16,7 +19,7 @@
       title="Show annotation IDs"
     >
       <font-awesome-icon :icon="['fas', 'fingerprint']" class="text-[10px]" />
-      <span>IDs</span>
+      <span>Tag ID</span>
     </button>
   </div>
 </template>

@@ -8,6 +8,7 @@ export const useUiStore = defineStore('ui', () => {
   const searchQuery = ref('')
   const currentPage = ref(0)
   const pageSize = ref(PAGE_SIZE)
+  const hoveredEntityId = ref(null)
 
   function toggleAttributes() {
     showAttributes.value = !showAttributes.value
@@ -25,15 +26,21 @@ export const useUiStore = defineStore('ui', () => {
     currentPage.value = page
   }
 
+  function setHoveredEntityId(id) {
+    hoveredEntityId.value = id
+  }
+
   return {
     showAttributes,
     showAnnotationId,
     searchQuery,
     currentPage,
     pageSize,
+    hoveredEntityId,
     toggleAttributes,
     toggleAnnotationId,
     setSearch,
     setPage,
+    setHoveredEntityId,
   }
 })

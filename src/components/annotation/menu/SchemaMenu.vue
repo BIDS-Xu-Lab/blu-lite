@@ -2,6 +2,7 @@
   <div class="flex items-center gap-2">
     <button
       class="flex items-center gap-1.5 px-2.5 py-1 text-sm rounded hover:bg-gray-100 transition-colors"
+      title="Load annotation schema definition (entity types, attributes)"
       @click="handleLoadSchema"
     >
       <font-awesome-icon :icon="['fas', 'project-diagram']" class="text-xs text-gray-500" />

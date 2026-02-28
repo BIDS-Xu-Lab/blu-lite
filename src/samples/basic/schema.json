@@ -1,0 +1,27 @@
+{
+  "name": "Project Name",
+  "entity": [
+    {
+      "name": "disease",
+      "attrs": [
+        { "name": "concept", "value_type": "text", "values": [], "default_value": "" },
+        { "name": "comment", "value_type": "text", "values": [], "default_value": "" },
+        { "name": "certainty", "value_type": "enum", "values": ["positive", "negated", "possible", "NA"], "default_value": "NA" }
+      ]
+    },
+    {
+      "name": "drug",
+      "attrs": [
+        { "name": "concept", "value_type": "text", "values": [], "default_value": "" },
+        { "name": "comment", "value_type": "text", "values": [], "default_value": "" },
+        { "name": "certainty", "value_type": "enum", "values": ["positive", "negated", "possible", "NA"], "default_value": "NA" }
+      ]
+    }
+  ],
+  "relation": [
+    {
+      "name": "treatment",
+      "attrs": []
+    }
+  ]
+}

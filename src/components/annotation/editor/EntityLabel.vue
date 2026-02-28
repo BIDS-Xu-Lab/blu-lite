@@ -3,6 +3,8 @@
     class="entity-label"
     :style="labelStyle"
     @click.stop="handleClick"
+    @mouseenter="uiStore.setHoveredEntityId(entity.id)"
+    @mouseleave="uiStore.setHoveredEntityId(null)"
     :title="entity.semantic + (uiStore.showAnnotationId ? ' [' + entity.id + ']' : '')"
   >
     {{ entity.semantic }}

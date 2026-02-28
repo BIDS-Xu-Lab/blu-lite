@@ -2,6 +2,7 @@
   <div class="relative">
     <button
       class="flex items-center gap-1.5 px-2.5 py-1 text-sm rounded hover:bg-gray-100 transition-colors"
+      title="Load, save, and export annotation files"
       @click="toggle"
     >
       <font-awesome-icon :icon="['fas', 'file']" class="text-xs text-gray-500" />
