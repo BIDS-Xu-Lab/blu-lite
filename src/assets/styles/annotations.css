@@ -73,6 +73,53 @@
   letter-spacing: 0;
 }
 
+/* Relation mode styles */
+@keyframes relation-target-blink {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.6); }
+  50% { box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.3); }
+}
+
+.relation-target-blink {
+  animation: relation-target-blink 0.8s ease-in-out infinite;
+  cursor: pointer !important;
+}
+
+.relation-from-highlight {
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.7);
+}
+
+.relation-mode-dimmed {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.relation-mode-banner-float {
+  position: absolute;
+  transform: translateX(50%);
+  z-index: 20;
+  pointer-events: none;
+  display: flex;
+  justify-content: center;
+  padding: 0 10px;
+}
+
+.relation-mode-banner-float .relation-mode-banner {
+  pointer-events: auto;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.relation-mode-banner {
+  background: linear-gradient(135deg, #eff6ff, #dbeafe);
+  border: 1px solid #93c5fd;
+  color: #1e40af;
+}
+
+/* Extra bottom margin on entity labels that are connected by a relation line */
+.entity-label.relation-connected {
+  margin-bottom: 20px;
+}
+
 .plain-segment {
   /* no special styling for plain text */
 }

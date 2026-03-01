@@ -21,6 +21,8 @@
   "relation": [
     {
       "name": "treatment",
+      "from_entity": "drug",
+      "to_entity": "disease",
       "attrs": []
     }
   ]

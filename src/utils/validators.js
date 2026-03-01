@@ -19,9 +19,16 @@ export function validateSchema(obj) {
       throw new Error(`Entity "${entity.name}" attrs must be an array`)
     }
   }
+  const entityNameSet = new Set(obj.entity.map((e) => e.name))
   for (const relation of obj.relation) {
     if (!relation.name || typeof relation.name !== 'string') {
       throw new Error('Each relation must have a "name" string field')
+    }
+    if (relation.from_entity && !entityNameSet.has(relation.from_entity)) {
+      throw new Error(`Relation "${relation.name}" from_entity "${relation.from_entity}" not found in entity definitions`)
+    }
+    if (relation.to_entity && !entityNameSet.has(relation.to_entity)) {
+      throw new Error(`Relation "${relation.name}" to_entity "${relation.to_entity}" not found in entity definitions`)
     }
   }
   return true

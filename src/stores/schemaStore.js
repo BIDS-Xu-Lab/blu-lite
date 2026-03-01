@@ -16,6 +16,14 @@ export const useSchemaStore = defineStore('schema', () => {
     return entityTypes.value.find((e) => e.name === entityName)?.attrs ?? []
   }
 
+  function getRelationsForEntity(entityName) {
+    return relationTypes.value.filter((r) => r.from_entity === entityName)
+  }
+
+  function getRelationByName(name) {
+    return relationTypes.value.find((r) => r.name === name) ?? null
+  }
+
   function getEntityColor(entityName) {
     return entityColorMap.value[entityName] ?? { bg: '#f3f4f6', text: '#374151', border: '#d1d5db' }
   }
@@ -42,6 +50,8 @@ export const useSchemaStore = defineStore('schema', () => {
     entityNames,
     getEntityAttrs,
     getEntityColor,
+    getRelationsForEntity,
+    getRelationByName,
     loadSchema,
     clearSchema,
   }

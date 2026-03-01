@@ -18,6 +18,10 @@ export const useAnnotationStore = defineStore('annotation', () => {
   const editingOffset = ref(null)
   const editingEntityIndex = ref(-1)
 
+  // Relation mode state
+  const relationMode = ref(false)
+  const pendingRelation = ref(null) // { relationType, fromEntity, fromOffsetKey }
+
   const currentIndexes = computed(() => {
     return fileStore.activeFile?.indexes ?? {}
   })
@@ -44,6 +48,101 @@ export const useAnnotationStore = defineStore('annotation', () => {
     if (!content) return 0
     return content.split(/\s+/).filter(Boolean).length
   })
+
+  const allRelations = computed(() => {
+    const relations = []
+    const indexes = currentIndexes.value
+    for (const [offsetKey, indexData] of Object.entries(indexes)) {
+      if (indexData.Relation) {
+        for (let ri = 0; ri < indexData.Relation.length; ri++) {
+          relations.push({ ...indexData.Relation[ri], _offsetKey: offsetKey, _relationIndex: ri })
+        }
+      }
+    }
+    return relations
+  })
+
+  const relationCount = computed(() => allRelations.value.length)
+
+  // Set of entity keys involved in relations (for styling connected labels)
+  const entitiesInRelations = computed(() => {
+    const keys = new Set()
+    for (const rel of allRelations.value) {
+      keys.add(`${rel.fromEnt.begin}-${rel.fromEnt.end}-${rel.fromEnt.semantic}`)
+      keys.add(`${rel.toEnt.begin}-${rel.toEnt.end}-${rel.toEnt.semantic}`)
+    }
+    return keys
+  })
+
+  function isEntityInRelation(entity) {
+    return entitiesInRelations.value.has(`${entity.begin}-${entity.end}-${entity.semantic}`)
+  }
+
+  function startRelationMode(relationType, fromEntity, fromOffsetKey) {
+    relationMode.value = true
+    pendingRelation.value = { relationType, fromEntity, fromOffsetKey }
+  }
+
+  function cancelRelationMode() {
+    relationMode.value = false
+    pendingRelation.value = null
+  }
+
+  function createRelation(toEntity) {
+    if (!pendingRelation.value || !fileStore.activeFile) return null
+    const { relationType, fromEntity, fromOffsetKey } = pendingRelation.value
+    const indexes = fileStore.activeFile.indexes
+
+    if (!indexes[fromOffsetKey]) {
+      indexes[fromOffsetKey] = {}
+    }
+    if (!indexes[fromOffsetKey].Relation) {
+      indexes[fromOffsetKey].Relation = []
+    }
+
+    const relation = {
+      id: generateId(),
+      semantic: relationType,
+      type: 'Relation',
+      begin: fromEntity.begin,
+      end: fromEntity.end,
+      fromEnt: {
+        begin: fromEntity.begin,
+        end: fromEntity.end,
+        semantic: fromEntity.semantic,
+        type: 'Entity',
+      },
+      toEnt: {
+        begin: toEntity.begin,
+        end: toEntity.end,
+        semantic: toEntity.semantic,
+        type: 'Entity',
+      },
+      attrs: {},
+    }
+
+    indexes[fromOffsetKey].Relation.push(relation)
+    fileStore.markActiveDirty()
+
+    relationMode.value = false
+    pendingRelation.value = null
+    return relation
+  }
+
+  function deleteRelation(offsetKey, relationIndex) {
+    if (!fileStore.activeFile) return
+    const indexes = fileStore.activeFile.indexes
+    if (!indexes[offsetKey]?.Relation) return
+
+    indexes[offsetKey].Relation.splice(relationIndex, 1)
+    if (indexes[offsetKey].Relation.length === 0) {
+      delete indexes[offsetKey].Relation
+    }
+    if (Object.keys(indexes[offsetKey]).length === 0) {
+      delete indexes[offsetKey]
+    }
+    fileStore.markActiveDirty()
+  }
 
   function setPendingSelection(sel) {
     pendingSelection.value = sel
@@ -99,6 +198,29 @@ export const useAnnotationStore = defineStore('annotation', () => {
     if (!fileStore.activeFile) return
     const indexes = fileStore.activeFile.indexes
     if (!indexes[offsetKey]?.Entity) return
+
+    const entity = indexes[offsetKey].Entity[entityIndex]
+
+    // Cascade-delete relations referencing this entity
+    if (entity) {
+      for (const [oKey, indexData] of Object.entries(indexes)) {
+        if (!indexData.Relation) continue
+        for (let ri = indexData.Relation.length - 1; ri >= 0; ri--) {
+          const rel = indexData.Relation[ri]
+          const matchesFrom = rel.fromEnt.begin === entity.begin && rel.fromEnt.end === entity.end && rel.fromEnt.semantic === entity.semantic
+          const matchesTo = rel.toEnt.begin === entity.begin && rel.toEnt.end === entity.end && rel.toEnt.semantic === entity.semantic
+          if (matchesFrom || matchesTo) {
+            indexData.Relation.splice(ri, 1)
+          }
+        }
+        if (indexData.Relation.length === 0) {
+          delete indexData.Relation
+        }
+        if (Object.keys(indexData).length === 0) {
+          delete indexes[oKey]
+        }
+      }
+    }
 
     indexes[offsetKey].Entity.splice(entityIndex, 1)
     if (indexes[offsetKey].Entity.length === 0) {
@@ -165,9 +287,15 @@ export const useAnnotationStore = defineStore('annotation', () => {
     editingEntity,
     editingOffset,
     editingEntityIndex,
+    relationMode,
+    pendingRelation,
     currentIndexes,
     allEntities,
+    allRelations,
     entityCount,
+    relationCount,
+    entitiesInRelations,
+    isEntityInRelation,
     charCount,
     tokenCount,
     setPendingSelection,
@@ -178,5 +306,9 @@ export const useAnnotationStore = defineStore('annotation', () => {
     clearEditingEntity,
     updateEntityAttribute,
     removeEntityAttribute,
+    startRelationMode,
+    cancelRelationMode,
+    createRelation,
+    deleteRelation,
   }
 })

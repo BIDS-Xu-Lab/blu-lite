@@ -1,7 +1,16 @@
 <template>
   <span
     class="entity-label"
+    :class="{
+      'relation-target-blink': isRelationTarget,
+      'relation-from-highlight': isRelationFrom,
+      'relation-mode-dimmed': isRelationModeDimmed,
+      'relation-connected': isInRelation,
+    }"
     :style="labelStyle"
+    :data-entity-id="entity.id"
+    :data-entity-begin="entity.begin"
+    :data-entity-end="entity.end"
     @click.stop="handleClick"
     @mouseenter="uiStore.setHoveredEntityId(entity.id)"
     @mouseleave="uiStore.setHoveredEntityId(null)"
@@ -25,6 +34,7 @@
 import { computed } from 'vue'
 import { useUiStore } from '../../../stores/uiStore.js'
 import { useAnnotationStore } from '../../../stores/annotationStore.js'
+import { useSchemaStore } from '../../../stores/schemaStore.js'
 
 const props = defineProps({
   entity: { type: Object, required: true },
@@ -35,6 +45,7 @@ const props = defineProps({
 
 const uiStore = useUiStore()
 const annotationStore = useAnnotationStore()
+const schemaStore = useSchemaStore()
 
 const labelStyle = computed(() => ({
   backgroundColor: props.color.bg,
@@ -46,10 +57,43 @@ const hasAttrs = computed(() => {
   return props.entity.attrs && Object.keys(props.entity.attrs).length > 0
 })
 
+const isRelationTarget = computed(() => {
+  if (!annotationStore.relationMode || !annotationStore.pendingRelation) return false
+  const rel = schemaStore.getRelationByName(annotationStore.pendingRelation.relationType)
+  if (!rel) return false
+  // Must match the to_entity type and not be the from entity itself
+  const fromEnt = annotationStore.pendingRelation.fromEntity
+  if (props.entity.begin === fromEnt.begin && props.entity.end === fromEnt.end && props.entity.semantic === fromEnt.semantic) return false
+  return props.entity.semantic === rel.to_entity
+})
+
+const isRelationFrom = computed(() => {
+  if (!annotationStore.relationMode || !annotationStore.pendingRelation) return false
+  const fromEnt = annotationStore.pendingRelation.fromEntity
+  return props.entity.begin === fromEnt.begin && props.entity.end === fromEnt.end && props.entity.semantic === fromEnt.semantic
+})
+
+const isInRelation = computed(() => {
+  return annotationStore.isEntityInRelation(props.entity)
+})
+
+const isRelationModeDimmed = computed(() => {
+  if (!annotationStore.relationMode) return false
+  return !isRelationTarget.value && !isRelationFrom.value
+})
+
 function handleClick(event) {
+  // In relation mode, clicking a valid target creates the relation
+  if (annotationStore.relationMode) {
+    if (isRelationTarget.value) {
+      annotationStore.createRelation(props.entity)
+    }
+    return
+  }
+
+  // Normal mode: open context menu
   annotationStore.setEditingEntity(props.offsetKey, props.entityIndex)
 
-  // Dispatch a custom event for the context menu
   const customEvent = new CustomEvent('entity-click', {
     detail: {
       offsetKey: props.offsetKey,

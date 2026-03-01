@@ -29,6 +29,18 @@
             "concept": { "id": "A3", "attrKey": "concept", "attrValue": "C0025598", "attrType": "text", "annotationValue": "", "attrIcon": "" }
           }
         }
+      ],
+      "Relation": [
+        {
+          "id": "R1",
+          "semantic": "treatment",
+          "type": "Relation",
+          "begin": 71,
+          "end": 80,
+          "fromEnt": { "begin": 71, "end": 80, "semantic": "drug", "type": "Entity" },
+          "toEnt": { "begin": 31, "end": 55, "semantic": "disease", "type": "Entity" },
+          "attrs": {}
+        }
       ]
     },
     "128": {
