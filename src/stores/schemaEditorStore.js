@@ -88,7 +88,15 @@ export const useSchemaEditorStore = defineStore('schemaEditor', () => {
   }
 
   function loadFromObject(schemaObj) {
-    draft.value = JSON.parse(JSON.stringify(schemaObj))
+    const cloned = JSON.parse(JSON.stringify(schemaObj))
+    // Normalize: ensure every relation has from_entity and to_entity
+    if (Array.isArray(cloned.relation)) {
+      for (const rel of cloned.relation) {
+        if (!('from_entity' in rel)) rel.from_entity = ''
+        if (!('to_entity' in rel)) rel.to_entity = ''
+      }
+    }
+    draft.value = cloned
     isDirty.value = false
     selectedType.value = null
     selectedTypeIndex.value = -1
