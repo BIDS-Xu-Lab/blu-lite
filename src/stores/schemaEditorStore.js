@@ -58,11 +58,19 @@ export const useSchemaEditorStore = defineStore('schemaEditor', () => {
     if (!Array.isArray(draft.value.relation)) {
       errors.push('"relation" must be an array')
     } else {
+      const entityNameSet = new Set(draft.value.entity?.map(e => e.name) ?? [])
       const relationNames = new Set()
       draft.value.relation.forEach((r, i) => {
         if (!r.name?.trim()) errors.push(`Relation #${i + 1} has no name`)
         else if (relationNames.has(r.name)) errors.push(`Duplicate relation name: "${r.name}"`)
         else relationNames.add(r.name)
+
+        if (r.from_entity && !entityNameSet.has(r.from_entity)) {
+          errors.push(`Relation "${r.name}" from_entity "${r.from_entity}" references unknown entity`)
+        }
+        if (r.to_entity && !entityNameSet.has(r.to_entity)) {
+          errors.push(`Relation "${r.name}" to_entity "${r.to_entity}" references unknown entity`)
+        }
       })
     }
 
@@ -126,14 +134,20 @@ export const useSchemaEditorStore = defineStore('schemaEditor', () => {
   function addRelation(name = 'new_relation') {
     if (!draft.value) return
     const uniqueName = ensureUniqueName(name, relations.value)
-    draft.value.relation.push({ name: uniqueName, attrs: [] })
+    draft.value.relation.push({ name: uniqueName, from_entity: '', to_entity: '', attrs: [] })
     isDirty.value = true
     selectItem('relation', draft.value.relation.length - 1)
   }
 
   function removeEntity(index) {
     if (!draft.value || index < 0 || index >= draft.value.entity.length) return
+    const removedName = draft.value.entity[index].name
     draft.value.entity.splice(index, 1)
+    // Cascade: clear relations referencing the removed entity
+    for (const rel of draft.value.relation) {
+      if (rel.from_entity === removedName) rel.from_entity = ''
+      if (rel.to_entity === removedName) rel.to_entity = ''
+    }
     isDirty.value = true
     if (selectedType.value === 'entity') {
       if (selectedTypeIndex.value === index) {
@@ -167,7 +181,23 @@ export const useSchemaEditorStore = defineStore('schemaEditor', () => {
     if (!draft.value) return
     const arr = type === 'entity' ? draft.value.entity : draft.value.relation
     if (index < 0 || index >= arr.length) return
+    const oldName = arr[index].name
     arr[index].name = newName
+    // Cascade: update relations referencing this entity
+    if (type === 'entity' && oldName !== newName) {
+      for (const rel of draft.value.relation) {
+        if (rel.from_entity === oldName) rel.from_entity = newName
+        if (rel.to_entity === oldName) rel.to_entity = newName
+      }
+    }
+    isDirty.value = true
+  }
+
+  function updateRelationEndpoints(index, field, value) {
+    if (!draft.value) return
+    if (index < 0 || index >= draft.value.relation.length) return
+    if (field !== 'from_entity' && field !== 'to_entity') return
+    draft.value.relation[index][field] = value
     isDirty.value = true
   }
 
@@ -233,7 +263,7 @@ export const useSchemaEditorStore = defineStore('schemaEditor', () => {
     createNew, loadFromObject, reset, setSchemaName,
     selectItem,
     addEntity, addRelation, removeEntity, removeRelation,
-    renameType, moveType,
+    renameType, moveType, updateRelationEndpoints,
     addAttribute, removeAttribute, updateAttribute, moveAttribute,
   }
 })

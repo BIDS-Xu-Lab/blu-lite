@@ -31,6 +31,43 @@
         </div>
       </div>
 
+      <!-- Relation endpoints (from_entity / to_entity) -->
+      <div v-if="editorStore.selectedType === 'relation'" class="mb-6">
+        <span class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+          Entity Endpoints
+        </span>
+        <div class="grid grid-cols-2 gap-4 mt-2">
+          <!-- From Entity -->
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1">From Entity</label>
+            <select
+              :value="editorStore.selectedItem.from_entity ?? ''"
+              @change="editorStore.updateRelationEndpoints(editorStore.selectedTypeIndex, 'from_entity', $event.target.value)"
+              class="w-full text-sm border border-gray-200 rounded px-2.5 py-1.5 bg-white focus:outline-none focus:border-yale-300 transition-colors"
+            >
+              <option value="">— not set —</option>
+              <option v-for="ent in editorStore.entities" :key="ent.name" :value="ent.name">
+                {{ ent.name }}
+              </option>
+            </select>
+          </div>
+          <!-- To Entity -->
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1">To Entity</label>
+            <select
+              :value="editorStore.selectedItem.to_entity ?? ''"
+              @change="editorStore.updateRelationEndpoints(editorStore.selectedTypeIndex, 'to_entity', $event.target.value)"
+              class="w-full text-sm border border-gray-200 rounded px-2.5 py-1.5 bg-white focus:outline-none focus:border-yale-300 transition-colors"
+            >
+              <option value="">— not set —</option>
+              <option v-for="ent in editorStore.entities" :key="ent.name" :value="ent.name">
+                {{ ent.name }}
+              </option>
+            </select>
+          </div>
+        </div>
+      </div>
+
       <!-- Attributes section -->
       <div>
         <div class="flex items-center justify-between mb-3">
