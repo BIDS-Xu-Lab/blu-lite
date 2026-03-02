@@ -55,6 +55,7 @@
     <EntityTypeSelector />
     <EntityContextMenu />
     <AttributeEditor />
+    <ConceptMappingPanel />
   </div>
 </template>
 
@@ -68,6 +69,7 @@ import EntityTypeSelector from './EntityTypeSelector.vue'
 import EntityContextMenu from './EntityContextMenu.vue'
 import AttributeEditor from './AttributeEditor.vue'
 import RelationOverlay from './RelationOverlay.vue'
+import ConceptMappingPanel from './ConceptMappingPanel.vue'
 
 const fileStore = useFileStore()
 const annotationStore = useAnnotationStore()

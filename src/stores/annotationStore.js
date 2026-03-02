@@ -22,6 +22,11 @@ export const useAnnotationStore = defineStore('annotation', () => {
   const relationMode = ref(false)
   const pendingRelation = ref(null) // { relationType, fromEntity, fromOffsetKey }
 
+  // Concept mapping state
+  const conceptMappingTarget = ref(null) // { type: 'entity'|'relation', offsetKey, index, annotation }
+  const showConceptMapping = ref(false)
+  const conceptMappingPosition = ref({ x: 0, y: 0 })
+
   const currentIndexes = computed(() => {
     return fileStore.activeFile?.indexes ?? {}
   })
@@ -280,6 +285,75 @@ export const useAnnotationStore = defineStore('annotation', () => {
     fileStore.markActiveDirty()
   }
 
+  function openConceptMapping(type, offsetKey, index, position) {
+    const file = fileStore.activeFile
+    if (!file) return
+    let annotation
+    if (type === 'entity') {
+      annotation = file.indexes[offsetKey]?.Entity?.[index]
+    } else {
+      annotation = file.indexes[offsetKey]?.Relation?.[index]
+    }
+    if (!annotation) return
+    conceptMappingTarget.value = { type, offsetKey, index, annotation }
+    conceptMappingPosition.value = position
+    showConceptMapping.value = true
+  }
+
+  function closeConceptMapping() {
+    conceptMappingTarget.value = null
+    showConceptMapping.value = false
+  }
+
+  function setConceptMapping(offsetKey, index, type, conceptId, vocabulary) {
+    const file = fileStore.activeFile
+    if (!file) return
+
+    let annotation
+    if (type === 'entity') {
+      annotation = file.indexes[offsetKey]?.Entity?.[index]
+    } else {
+      annotation = file.indexes[offsetKey]?.Relation?.[index]
+    }
+    if (!annotation) return
+
+    if (!annotation.attrs) annotation.attrs = {}
+
+    annotation.attrs.concept = {
+      id: annotation.attrs.concept?.id || generateId(),
+      attrKey: 'concept',
+      attrValue: conceptId,
+      attrType: 'text',
+      annotationValue: '',
+      attrIcon: '',
+    }
+    annotation.attrs.vocabulary = {
+      id: annotation.attrs.vocabulary?.id || generateId(),
+      attrKey: 'vocabulary',
+      attrValue: vocabulary,
+      attrType: 'text',
+      annotationValue: '',
+      attrIcon: '',
+    }
+
+    fileStore.markActiveDirty()
+  }
+
+  function clearConceptMapping(offsetKey, index, type) {
+    const file = fileStore.activeFile
+    if (!file) return
+    let annotation
+    if (type === 'entity') {
+      annotation = file.indexes[offsetKey]?.Entity?.[index]
+    } else {
+      annotation = file.indexes[offsetKey]?.Relation?.[index]
+    }
+    if (!annotation?.attrs) return
+    delete annotation.attrs.concept
+    delete annotation.attrs.vocabulary
+    fileStore.markActiveDirty()
+  }
+
   return {
     pendingSelection,
     showTypeSelector,
@@ -310,5 +384,12 @@ export const useAnnotationStore = defineStore('annotation', () => {
     cancelRelationMode,
     createRelation,
     deleteRelation,
+    conceptMappingTarget,
+    showConceptMapping,
+    conceptMappingPosition,
+    openConceptMapping,
+    closeConceptMapping,
+    setConceptMapping,
+    clearConceptMapping,
   }
 })

@@ -53,13 +53,26 @@
     </template>
   </svg>
 
-  <!-- Relation delete popup -->
+  <!-- Relation context popup -->
   <div
     v-if="deletePopup.visible"
     ref="deleteMenuRef"
-    class="fixed bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50 min-w-[120px]"
+    class="fixed bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50 min-w-[160px]"
     :style="{ left: deletePopup.x + 'px', top: deletePopup.y + 'px' }"
   >
+    <button
+      class="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 flex items-center gap-2"
+      @click="openRelationConceptMapping"
+    >
+      <font-awesome-icon :icon="['fas', 'book-medical']" class="text-xs text-gray-400" />
+      <template v-if="popupRelationConcept">
+        Edit {{ popupRelationConcept }}
+      </template>
+      <template v-else>
+        Concept Mapping
+      </template>
+    </button>
+    <div class="border-t border-gray-100 my-0.5"></div>
     <button
       class="w-full text-left px-3 py-1.5 text-sm hover:bg-red-50 text-red-600 flex items-center gap-2"
       @click="confirmDeleteRelation"
@@ -73,12 +86,30 @@
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useAnnotationStore } from '../../../stores/annotationStore.js'
+import { useFileStore } from '../../../stores/fileStore.js'
 
 const props = defineProps({
   scrollContainer: { type: Object, default: null },
 })
 
 const annotationStore = useAnnotationStore()
+const fileStore = useFileStore()
+
+const popupRelationConcept = computed(() => {
+  if (!deletePopup.value.visible) return null
+  const { offsetKey, relationIndex } = deletePopup.value
+  const rel = fileStore.activeFile?.indexes?.[offsetKey]?.Relation?.[relationIndex]
+  if (!rel?.attrs?.concept?.attrValue) return null
+  const conceptId = rel.attrs.concept.attrValue
+  const vocab = rel.attrs.vocabulary?.attrValue || ''
+  return `${conceptId}(${vocab})`
+})
+
+function openRelationConceptMapping() {
+  const { offsetKey, relationIndex, x, y } = deletePopup.value
+  deletePopup.value.visible = false
+  annotationStore.openConceptMapping('relation', offsetKey, relationIndex, { x, y })
+}
 
 const svgRef = ref(null)
 const svgSize = ref({ width: 0, height: 0 })

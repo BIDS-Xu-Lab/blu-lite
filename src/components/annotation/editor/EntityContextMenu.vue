@@ -21,6 +21,19 @@
 
     <button
       class="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 flex items-center gap-2"
+      @click="openConceptMapping"
+    >
+      <font-awesome-icon :icon="['fas', 'book-medical']" class="text-xs text-gray-400" />
+      <template v-if="currentConcept">
+        Edit {{ currentConcept }}
+      </template>
+      <template v-else>
+        Concept Mapping
+      </template>
+    </button>
+    <div class="border-t border-gray-100 my-0.5"></div>
+    <button
+      class="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 flex items-center gap-2"
       @click="editAttribute"
     >
       <font-awesome-icon :icon="['fas', 'pen-to-square']" class="text-xs text-gray-400" />
@@ -53,6 +66,26 @@ const availableRelations = computed(() => {
   if (!annotationStore.editingEntity) return []
   return schemaStore.getRelationsForEntity(annotationStore.editingEntity.semantic)
 })
+
+const currentConcept = computed(() => {
+  const entity = annotationStore.editingEntity
+  if (!entity?.attrs?.concept?.attrValue) return null
+  const conceptId = entity.attrs.concept.attrValue
+  const vocab = entity.attrs.vocabulary?.attrValue || ''
+  return `${conceptId}(${vocab})`
+})
+
+function openConceptMapping() {
+  visible.value = false
+  if (annotationStore.editingOffset !== null && annotationStore.editingEntityIndex >= 0) {
+    annotationStore.openConceptMapping(
+      'entity',
+      annotationStore.editingOffset,
+      annotationStore.editingEntityIndex,
+      position.value,
+    )
+  }
+}
 
 function handleEntityClick(event) {
   if (annotationStore.relationMode) return

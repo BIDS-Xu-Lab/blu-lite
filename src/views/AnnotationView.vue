@@ -21,24 +21,48 @@
       <span>Chars: {{ charCount }}</span>
       <span>Tokens: {{ annotationStore.tokenCount }}</span>
       <span>Entities: {{ annotationStore.entityCount }}</span>
+      <span class="ml-auto flex items-center gap-1">
+        <template v-if="vocabStore.indexStatus === 'loading'">
+          <font-awesome-icon :icon="['fas', 'spinner']" class="animate-spin text-yellow-500" />
+          Loading Vocabulary...
+        </template>
+        <template v-else-if="vocabStore.indexStatus === 'indexing'">
+          <font-awesome-icon :icon="['fas', 'spinner']" class="animate-spin text-blue-500" />
+          Indexing Vocabulary...
+        </template>
+        <template v-else-if="vocabStore.indexStatus === 'ready'">
+          <font-awesome-icon :icon="['fas', 'book-medical']" class="text-green-500" />
+          Vocabulary Ready ({{ vocabStore.indexedDocCount.toLocaleString() }})
+        </template>
+        <template v-else-if="vocabStore.indexStatus === 'error'">
+          <font-awesome-icon :icon="['fas', 'triangle-exclamation']" class="text-red-500" />
+          Vocab Error
+        </template>
+      </span>
     </footer>
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import AnnotationMenuBar from '../components/annotation/menu/AnnotationMenuBar.vue'
 import FileListPanel from '../components/annotation/filelist/FileListPanel.vue'
 import EditorPanel from '../components/annotation/editor/EditorPanel.vue'
 import { useFileStore } from '../stores/fileStore.js'
 import { useAnnotationStore } from '../stores/annotationStore.js'
+import { useVocabularyStore } from '../stores/vocabularyStore.js'
 
 const fileStore = useFileStore()
 const annotationStore = useAnnotationStore()
+const vocabStore = useVocabularyStore()
 
 const charCount = computed(() => {
   const c = annotationStore.charCount
   return c.toLocaleString()
+})
+
+onMounted(() => {
+  vocabStore.initVocabularies().catch(console.error)
 })
 </script>
 
