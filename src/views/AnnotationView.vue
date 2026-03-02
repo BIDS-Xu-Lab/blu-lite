@@ -21,6 +21,7 @@
       <span>Chars: {{ charCount }}</span>
       <span>Tokens: {{ annotationStore.tokenCount }}</span>
       <span>Entities: {{ annotationStore.entityCount }}</span>
+      <span>Relations: {{ annotationStore.relationCount }}</span>
       <span class="ml-auto flex items-center gap-1">
         <template v-if="vocabStore.indexStatus === 'loading'">
           <font-awesome-icon :icon="['fas', 'spinner']" class="animate-spin text-yellow-500" />

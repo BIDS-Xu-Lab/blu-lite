@@ -6,6 +6,7 @@
       'relation-from-highlight': isRelationFrom,
       'relation-mode-dimmed': isRelationModeDimmed,
       'relation-connected': isInRelation,
+      'concept-mapping-blink': isConceptMappingTarget,
     }"
     :style="labelStyle"
     :data-entity-id="entity.id"
@@ -14,7 +15,6 @@
     @click.stop="handleClick"
     @mouseenter="uiStore.setHoveredEntityId(entity.id)"
     @mouseleave="uiStore.setHoveredEntityId(null)"
-    :title="entity.semantic + (uiStore.showAnnotationId ? ' [' + entity.id + ']' : '')"
   >
     {{ entity.semantic }}
     <span v-if="uiStore.showAnnotationId" class="opacity-60 ml-0.5">#{{ entity.id }}</span>
@@ -80,6 +80,17 @@ const isInRelation = computed(() => {
 const isRelationModeDimmed = computed(() => {
   if (!annotationStore.relationMode) return false
   return !isRelationTarget.value && !isRelationFrom.value
+})
+
+const isConceptMappingTarget = computed(() => {
+  const target = annotationStore.conceptMappingTarget
+  if (!target || !annotationStore.showConceptMapping) return false
+  if (target.type !== 'entity') return false
+  return (
+    target.annotation.begin === props.entity.begin &&
+    target.annotation.end === props.entity.end &&
+    target.annotation.semantic === props.entity.semantic
+  )
 })
 
 function handleClick(event) {

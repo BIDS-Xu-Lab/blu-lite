@@ -28,7 +28,7 @@
               :key="part.offset"
               :data-offset="part.offset"
               :style="partAnnotatedStyle(seg, part.highlighted)"
-              :class="{ 'segment-hovered': isSegmentHovered(seg) }"
+              :class="{ 'segment-hovered': isSegmentHovered(seg), 'concept-mapping-blink': isSegmentConceptMapping(seg) }"
               class="annotated-segment"
             >{{ part.text }}</span>
           </template>
@@ -55,6 +55,7 @@ import { ref, computed } from 'vue'
 import { useFileStore } from '../../../stores/fileStore.js'
 import { useSchemaStore } from '../../../stores/schemaStore.js'
 import { useUiStore } from '../../../stores/uiStore.js'
+import { useAnnotationStore } from '../../../stores/annotationStore.js'
 import { useTextRenderer } from '../../../composables/useTextRenderer.js'
 import { useAnnotation } from '../../../composables/useAnnotation.js'
 import EntityLabel from './EntityLabel.vue'
@@ -62,6 +63,7 @@ import EntityLabel from './EntityLabel.vue'
 const fileStore = useFileStore()
 const schemaStore = useSchemaStore()
 const uiStore = useUiStore()
+const annotationStore = useAnnotationStore()
 
 const containerRef = ref(null)
 
@@ -113,5 +115,16 @@ function partAnnotatedStyle(seg, highlighted) {
 function isSegmentHovered(seg) {
   if (!uiStore.hoveredEntityId) return false
   return seg.entities.some(es => es.entity.id === uiStore.hoveredEntityId)
+}
+
+function isSegmentConceptMapping(seg) {
+  const target = annotationStore.conceptMappingTarget
+  if (!target || !annotationStore.showConceptMapping || target.type !== 'entity') return false
+  return seg.entities.some(
+    es =>
+      es.entity.begin === target.annotation.begin &&
+      es.entity.end === target.annotation.end &&
+      es.entity.semantic === target.annotation.semantic,
+  )
 }
 </script>
