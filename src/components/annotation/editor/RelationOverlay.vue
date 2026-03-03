@@ -131,6 +131,7 @@ const deleteMenuRef = ref(null)
 
 const SAME_ROW_THRESHOLD = 40
 const ROUTE_GAP = 18
+const CROSS_ROW_ARROW_LIFT = 24 // 1.5rem
 
 function findEntityLabel(begin, end, semantic) {
   if (!props.scrollContainer) return null
@@ -170,6 +171,7 @@ const curves = computed(() => {
     // Positions relative to scroll container content area
     const fromCenterX = fromRect.left - containerRect.left + scrollLeft + fromRect.width / 2
     const fromBottom = fromRect.bottom - containerRect.top + scrollTop
+    const fromTop = fromRect.top - containerRect.top + scrollTop
     const fromCenterY = fromRect.top - containerRect.top + scrollTop + fromRect.height / 2
 
     const toCenterX = toRect.left - containerRect.left + scrollLeft + toRect.width / 2
@@ -187,17 +189,18 @@ const curves = computed(() => {
       labelX = (fromCenterX + toCenterX) / 2
       labelY = routeY
     } else if (fromCenterY < toCenterY) {
-      // FROM is above TO: down → horizontal → down to TO top
+      // TO is lower than FROM: keep current route to TO top
       const midY = (fromBottom + toTop) / 2
       points = `${fromCenterX},${fromBottom} ${fromCenterX},${midY} ${toCenterX},${midY} ${toCenterX},${toTop}`
       labelX = (fromCenterX + toCenterX) / 2
       labelY = midY
     } else {
-      // FROM is below TO (unusual): down → horizontal → up
-      const routeY = Math.max(fromBottom, toBottom) + ROUTE_GAP
-      points = `${fromCenterX},${fromBottom} ${fromCenterX},${routeY} ${toCenterX},${routeY} ${toCenterX},${toBottom}`
+      // TO is higher than FROM: start above FROM top and end at TO bottom
+      const startY = Math.max(0, fromTop - CROSS_ROW_ARROW_LIFT)
+      const midY = (startY + toBottom) / 2
+      points = `${fromCenterX},${startY} ${fromCenterX},${midY} ${toCenterX},${midY} ${toCenterX},${toBottom}`
       labelX = (fromCenterX + toCenterX) / 2
-      labelY = routeY
+      labelY = midY
     }
 
     const conceptId = rel.attrs?.concept?.attrValue
