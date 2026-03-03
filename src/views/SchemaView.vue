@@ -10,11 +10,11 @@
       <template v-if="editorStore.draft">
         <Tabs value="entity-relation" class="flex flex-col h-full w-full">
           <TabList>
-            <Tab value="entity-relation">
+            <Tab value="entity-relation" class="py-2!">
               <font-awesome-icon :icon="['fas', 'sitemap']" class="mr-1.5" />
               Entity &amp; Relation
             </Tab>
-            <Tab value="guideline">
+            <Tab value="guideline" class="py-2!">
               <font-awesome-icon :icon="['fas', 'book-open']" class="mr-1.5" />
               Guideline
             </Tab>
