@@ -20,7 +20,7 @@ export const useAnnotationStore = defineStore('annotation', () => {
 
   // Relation mode state
   const relationMode = ref(false)
-  const pendingRelation = ref(null) // { relationType, fromEntity, fromOffsetKey }
+  const pendingRelation = ref(null) // { relationType, toEntity, fromEntity, fromOffsetKey }
 
   // Concept mapping state
   const conceptMappingTarget = ref(null) // { type: 'entity'|'relation', offsetKey, index, annotation }
@@ -83,9 +83,9 @@ export const useAnnotationStore = defineStore('annotation', () => {
     return entitiesInRelations.value.has(`${entity.begin}-${entity.end}-${entity.semantic}`)
   }
 
-  function startRelationMode(relationType, fromEntity, fromOffsetKey) {
+  function startRelationMode(relationType, toEntity, fromEntity, fromOffsetKey) {
     relationMode.value = true
-    pendingRelation.value = { relationType, fromEntity, fromOffsetKey }
+    pendingRelation.value = { relationType, toEntity, fromEntity, fromOffsetKey }
   }
 
   function cancelRelationMode() {

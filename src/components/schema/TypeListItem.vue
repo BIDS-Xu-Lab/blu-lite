@@ -1,10 +1,10 @@
 <template>
   <div
-    class="flex items-center justify-between px-3 py-1.5 cursor-pointer border-b border-gray-50 transition-colors group"
+    class="flex items-start justify-between px-3 py-1.5 cursor-pointer border-b border-gray-50 transition-colors group"
     :class="active ? 'bg-yale-50 border-l-2 border-l-yale-400' : 'hover:bg-gray-50 border-l-2 border-l-transparent'"
     @click="$emit('select')"
   >
-    <div class="flex items-center gap-2 min-w-0 flex-1">
+    <div class="flex items-start gap-2 min-w-0 flex-1">
       <span
         v-if="color"
         class="w-3 h-3 rounded-sm flex-shrink-0"
@@ -15,10 +15,17 @@
         :icon="['fas', 'arrows-left-right']"
         class="text-[10px] text-gray-300 flex-shrink-0"
       />
-      <span class="text-sm truncate" :class="active ? 'text-yale-600 font-medium' : 'text-gray-700'">
-        {{ item.name }}
-      </span>
-      <span class="text-[10px] text-gray-400">({{ item.attrs?.length ?? 0 }})</span>
+      <div class="min-w-0 flex-1">
+        <div class="flex items-center gap-2 min-w-0">
+          <span class="text-sm truncate" :class="active ? 'text-yale-600 font-medium' : 'text-gray-700'">
+            {{ item.name }}
+          </span>
+          <span class="text-[10px] text-gray-400">({{ item.attrs?.length ?? 0 }})</span>
+        </div>
+        <div v-if="relationHint" class="text-[11px] text-gray-400 truncate mt-0.5">
+          {{ relationHint }}
+        </div>
+      </div>
     </div>
     <div class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
       <button
@@ -54,6 +61,7 @@ defineProps({
   index: { type: Number, required: true },
   active: { type: Boolean, default: false },
   color: { type: Object, default: null },
+  relationHint: { type: String, default: '' },
   isFirst: { type: Boolean, default: false },
   isLast: { type: Boolean, default: false },
 })

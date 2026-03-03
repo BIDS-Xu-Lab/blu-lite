@@ -34,7 +34,6 @@
 import { computed } from 'vue'
 import { useUiStore } from '../../../stores/uiStore.js'
 import { useAnnotationStore } from '../../../stores/annotationStore.js'
-import { useSchemaStore } from '../../../stores/schemaStore.js'
 
 const props = defineProps({
   entity: { type: Object, required: true },
@@ -45,7 +44,6 @@ const props = defineProps({
 
 const uiStore = useUiStore()
 const annotationStore = useAnnotationStore()
-const schemaStore = useSchemaStore()
 
 const labelStyle = computed(() => ({
   backgroundColor: props.color.bg,
@@ -59,12 +57,10 @@ const hasAttrs = computed(() => {
 
 const isRelationTarget = computed(() => {
   if (!annotationStore.relationMode || !annotationStore.pendingRelation) return false
-  const rel = schemaStore.getRelationByName(annotationStore.pendingRelation.relationType)
-  if (!rel) return false
   // Must match the to_entity type and not be the from entity itself
   const fromEnt = annotationStore.pendingRelation.fromEntity
   if (props.entity.begin === fromEnt.begin && props.entity.end === fromEnt.end && props.entity.semantic === fromEnt.semantic) return false
-  return props.entity.semantic === rel.to_entity
+  return props.entity.semantic === annotationStore.pendingRelation.toEntity
 })
 
 const isRelationFrom = computed(() => {

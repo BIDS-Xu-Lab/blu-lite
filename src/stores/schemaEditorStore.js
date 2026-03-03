@@ -59,11 +59,8 @@ export const useSchemaEditorStore = defineStore('schemaEditor', () => {
       errors.push('"relation" must be an array')
     } else {
       const entityNameSet = new Set(draft.value.entity?.map(e => e.name) ?? [])
-      const relationNames = new Set()
       draft.value.relation.forEach((r, i) => {
         if (!r.name?.trim()) errors.push(`Relation #${i + 1} has no name`)
-        else if (relationNames.has(r.name)) errors.push(`Duplicate relation name: "${r.name}"`)
-        else relationNames.add(r.name)
 
         if (r.from_entity && !entityNameSet.has(r.from_entity)) {
           errors.push(`Relation "${r.name}" from_entity "${r.from_entity}" references unknown entity`)

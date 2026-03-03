@@ -20,6 +20,7 @@
       :index="index"
       :active="editorStore.selectedType === type && editorStore.selectedTypeIndex === index"
       :color="type === 'entity' ? editorStore.previewColors[item.name] : null"
+      :relationHint="type === 'relation' ? formatRelationHint(item) : ''"
       :isFirst="index === 0"
       :isLast="index === items.length - 1"
       @select="editorStore.selectItem(type, index)"
@@ -47,4 +48,10 @@ defineProps({
 defineEmits(['add'])
 
 const editorStore = useSchemaEditorStore()
+
+function formatRelationHint(item) {
+  const fromEntity = item.from_entity?.trim() || '?'
+  const toEntity = item.to_entity?.trim() || '?'
+  return `${fromEntity} -> ${toEntity}`
+}
 </script>

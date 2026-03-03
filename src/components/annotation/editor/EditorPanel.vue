@@ -63,7 +63,6 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useFileStore } from '../../../stores/fileStore.js'
 import { useAnnotationStore } from '../../../stores/annotationStore.js'
-import { useSchemaStore } from '../../../stores/schemaStore.js'
 import AnnotatedText from './AnnotatedText.vue'
 import EntityTypeSelector from './EntityTypeSelector.vue'
 import EntityContextMenu from './EntityContextMenu.vue'
@@ -73,14 +72,12 @@ import ConceptMappingPanel from './ConceptMappingPanel.vue'
 
 const fileStore = useFileStore()
 const annotationStore = useAnnotationStore()
-const schemaStore = useSchemaStore()
 
 const scrollContainerRef = ref(null)
 
 const targetEntityType = computed(() => {
   if (!annotationStore.pendingRelation) return ''
-  const rel = schemaStore.getRelationByName(annotationStore.pendingRelation.relationType)
-  return rel?.to_entity ?? ''
+  return annotationStore.pendingRelation.toEntity ?? ''
 })
 
 function handleKeydown(event) {
