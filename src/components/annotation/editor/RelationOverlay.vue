@@ -191,7 +191,8 @@ const curves = computed(() => {
     } else if (fromCenterY < toCenterY) {
       // TO is lower than FROM: keep current route to TO top
       const midY = (fromBottom + toTop) / 2
-      points = `${fromCenterX},${fromBottom} ${fromCenterX},${midY} ${toCenterX},${midY} ${toCenterX},${toTop}`
+      const toY = toTop - CROSS_ROW_ARROW_LIFT
+      points = `${fromCenterX},${fromBottom} ${fromCenterX},${midY} ${toCenterX},${midY} ${toCenterX},${toY}`
       labelX = (fromCenterX + toCenterX) / 2
       labelY = midY
     } else {
