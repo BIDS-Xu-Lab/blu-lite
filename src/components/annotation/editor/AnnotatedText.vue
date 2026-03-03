@@ -155,8 +155,16 @@ function candidateSegmentStyle(seg) {
 }
 
 function isSegmentHovered(seg) {
-  if (!uiStore.hoveredEntityId) return false
-  return seg.entities.some(es => es.entity.id === uiStore.hoveredEntityId)
+  const hasHoveredId = !!uiStore.hoveredEntityId
+  const hasHoveredKeys = uiStore.hoveredEntityKeys.length > 0
+  if (!hasHoveredId && !hasHoveredKeys) return false
+
+  return seg.entities.some((es) => {
+    if (hasHoveredId && es.entity.id === uiStore.hoveredEntityId) return true
+    if (!hasHoveredKeys) return false
+    const key = `${es.entity.begin}-${es.entity.end}-${es.entity.semantic}`
+    return uiStore.hoveredEntityKeys.includes(key)
+  })
 }
 
 function isSegmentConceptMapping(seg) {

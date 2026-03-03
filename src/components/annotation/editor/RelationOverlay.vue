@@ -27,40 +27,43 @@
         stroke-width="2"
         marker-end="url(#relation-arrow)"
       />
-      <!-- Relation label background -->
-      <rect
-        :x="curve.labelX - curve.labelWidth / 2 - 5"
-        :y="curve.conceptText ? curve.labelY - 14 : curve.labelY - 8"
-        :width="curve.labelWidth + 10"
-        :height="curve.conceptText ? 28 : 16"
-        rx="3"
-        fill="white"
-        stroke="#d1d5db"
-        stroke-width="1"
-        class="relation-label-bg"
-        @click.stop="handleRelationClick(curve, $event)"
-      />
-      <!-- Relation label text -->
-      <text
-        :x="curve.labelX"
-        :y="curve.conceptText ? curve.labelY : curve.labelY + 4"
-        text-anchor="middle"
-        class="relation-label-text"
+      <g
+        @mouseenter="handleRelationHover(curve)"
+        @mouseleave="clearRelationHover"
         @click.stop="handleRelationClick(curve, $event)"
       >
-        {{ curve.semantic }}
-      </text>
-      <!-- Concept text below label name -->
-      <text
-        v-if="curve.conceptText"
-        :x="curve.labelX"
-        :y="curve.labelY + 12"
-        text-anchor="middle"
-        class="relation-concept-text"
-        @click.stop="handleRelationClick(curve, $event)"
-      >
-        {{ curve.conceptText }}
-      </text>
+        <!-- Relation label background -->
+        <rect
+          :x="curve.labelX - curve.labelWidth / 2 - 5"
+          :y="curve.conceptText ? curve.labelY - 14 : curve.labelY - 8"
+          :width="curve.labelWidth + 10"
+          :height="curve.conceptText ? 28 : 16"
+          rx="3"
+          fill="white"
+          stroke="#d1d5db"
+          stroke-width="1"
+          class="relation-label-bg"
+        />
+        <!-- Relation label text -->
+        <text
+          :x="curve.labelX"
+          :y="curve.conceptText ? curve.labelY : curve.labelY + 4"
+          text-anchor="middle"
+          class="relation-label-text"
+        >
+          {{ curve.semantic }}
+        </text>
+        <!-- Concept text below label name -->
+        <text
+          v-if="curve.conceptText"
+          :x="curve.labelX"
+          :y="curve.labelY + 12"
+          text-anchor="middle"
+          class="relation-concept-text"
+        >
+          {{ curve.conceptText }}
+        </text>
+      </g>
     </template>
   </svg>
 
@@ -98,6 +101,7 @@
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useAnnotationStore } from '../../../stores/annotationStore.js'
 import { useFileStore } from '../../../stores/fileStore.js'
+import { useUiStore } from '../../../stores/uiStore.js'
 
 const props = defineProps({
   scrollContainer: { type: Object, default: null },
@@ -105,6 +109,7 @@ const props = defineProps({
 
 const annotationStore = useAnnotationStore()
 const fileStore = useFileStore()
+const uiStore = useUiStore()
 
 const popupRelationConcept = computed(() => {
   if (!deletePopup.value.visible) return null
@@ -147,6 +152,19 @@ function findEntityLabel(begin, end, semantic) {
     }
   }
   return null
+}
+
+function entityKey(entity) {
+  if (!entity) return ''
+  return `${entity.begin}-${entity.end}-${entity.semantic}`
+}
+
+function handleRelationHover(curve) {
+  uiStore.setHoveredEntityKeys([curve.fromEntityKey, curve.toEntityKey].filter(Boolean))
+}
+
+function clearRelationHover() {
+  uiStore.setHoveredEntityKeys([])
 }
 
 const curves = computed(() => {
@@ -221,6 +239,8 @@ const curves = computed(() => {
       labelWidth,
       semantic: rel.semantic,
       conceptText,
+      fromEntityKey: entityKey(rel.fromEnt),
+      toEntityKey: entityKey(rel.toEnt),
       _offsetKey: rel._offsetKey,
       _relationIndex: rel._relationIndex,
     })
@@ -326,6 +346,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  clearRelationHover()
   window.removeEventListener('resize', onResize)
   document.removeEventListener('mousedown', handleGlobalClick)
   if (props.scrollContainer) {

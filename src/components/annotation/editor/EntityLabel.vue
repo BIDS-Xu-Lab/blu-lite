@@ -7,6 +7,7 @@
       'relation-mode-dimmed': isRelationModeDimmed,
       'relation-connected': isInRelation,
       'concept-mapping-blink': isConceptMappingTarget,
+      'segment-hovered': isRelationLinkedHover,
     }"
     :style="labelStyle"
     :data-entity-id="entity.id"
@@ -84,6 +85,12 @@ const isConceptMappingTarget = computed(() => {
     target.annotation.end === props.entity.end &&
     target.annotation.semantic === props.entity.semantic
   )
+})
+
+const isRelationLinkedHover = computed(() => {
+  if (!uiStore.hoveredEntityKeys.length) return false
+  const key = `${props.entity.begin}-${props.entity.end}-${props.entity.semantic}`
+  return uiStore.hoveredEntityKeys.includes(key)
 })
 
 function handleClick(event) {
