@@ -8,12 +8,33 @@
     <!-- Body -->
     <div class="schema-body">
       <template v-if="editorStore.draft">
-        <div class="w-72 flex-shrink-0 h-full">
-          <TypeListPanel />
-        </div>
-        <div class="flex-1 min-w-0 h-full">
-          <TypeDetailPanel />
-        </div>
+        <Tabs value="entity-relation" class="flex flex-col h-full w-full">
+          <TabList>
+            <Tab value="entity-relation">
+              <font-awesome-icon :icon="['fas', 'sitemap']" class="mr-1.5" />
+              Entity &amp; Relation
+            </Tab>
+            <Tab value="guideline">
+              <font-awesome-icon :icon="['fas', 'book-open']" class="mr-1.5" />
+              Guideline
+            </Tab>
+          </TabList>
+          <TabPanels class="flex-1 overflow-hidden">
+            <TabPanel value="entity-relation" class="h-full p-0">
+              <div class="flex h-full">
+                <div class="w-72 flex-shrink-0 h-full">
+                  <TypeListPanel />
+                </div>
+                <div class="flex-1 min-w-0 h-full">
+                  <TypeDetailPanel />
+                </div>
+              </div>
+            </TabPanel>
+            <TabPanel value="guideline" class="h-full p-0">
+              <GuidelineEditor />
+            </TabPanel>
+          </TabPanels>
+        </Tabs>
       </template>
       <div v-else class="flex items-center justify-center w-full h-full text-gray-400">
         <div class="text-center">
@@ -44,9 +65,15 @@ import { onMounted } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
 import { useSchemaEditorStore } from '../stores/schemaEditorStore.js'
 import { useSchemaStore } from '../stores/schemaStore.js'
+import Tabs from 'primevue/tabs'
+import TabList from 'primevue/tablist'
+import Tab from 'primevue/tab'
+import TabPanels from 'primevue/tabpanels'
+import TabPanel from 'primevue/tabpanel'
 import SchemaMenuBar from '../components/schema/SchemaMenuBar.vue'
 import TypeListPanel from '../components/schema/TypeListPanel.vue'
 import TypeDetailPanel from '../components/schema/TypeDetailPanel.vue'
+import GuidelineEditor from '../components/schema/GuidelineEditor.vue'
 
 const editorStore = useSchemaEditorStore()
 const schemaStore = useSchemaStore()
@@ -74,7 +101,6 @@ onBeforeRouteLeave(() => {
 }
 
 .schema-body {
-  display: flex;
   overflow: hidden;
 }
 </style>

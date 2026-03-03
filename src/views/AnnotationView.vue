@@ -5,7 +5,7 @@
       <AnnotationMenuBar />
     </header>
 
-    <!-- Main Section: File List + Editor -->
+    <!-- Main Section: File List + Editor + Guideline -->
     <div class="annotation-body">
       <div class="w-72 flex-shrink-0 h-full">
         <FileListPanel />
@@ -13,6 +13,7 @@
       <div class="flex-1 min-w-0 h-full">
         <EditorPanel />
       </div>
+      <GuidelinePanel v-if="uiStore.showGuideline && schemaStore.schema?.guideline" />
     </div>
 
     <!-- Footer (1rem) -->
@@ -49,13 +50,18 @@ import { computed, onMounted } from 'vue'
 import AnnotationMenuBar from '../components/annotation/menu/AnnotationMenuBar.vue'
 import FileListPanel from '../components/annotation/filelist/FileListPanel.vue'
 import EditorPanel from '../components/annotation/editor/EditorPanel.vue'
+import GuidelinePanel from '../components/annotation/editor/GuidelinePanel.vue'
 import { useFileStore } from '../stores/fileStore.js'
 import { useAnnotationStore } from '../stores/annotationStore.js'
 import { useVocabularyStore } from '../stores/vocabularyStore.js'
+import { useSchemaStore } from '../stores/schemaStore.js'
+import { useUiStore } from '../stores/uiStore.js'
 
 const fileStore = useFileStore()
 const annotationStore = useAnnotationStore()
 const vocabStore = useVocabularyStore()
+const schemaStore = useSchemaStore()
+const uiStore = useUiStore()
 
 const charCount = computed(() => {
   const c = annotationStore.charCount

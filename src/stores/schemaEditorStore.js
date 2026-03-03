@@ -78,7 +78,7 @@ export const useSchemaEditorStore = defineStore('schemaEditor', () => {
 
   // --- Lifecycle ---
   function createNew() {
-    draft.value = { name: 'New Schema', entity: [], relation: [] }
+    draft.value = { name: 'New Schema', entity: [], relation: [], guideline: '' }
     isDirty.value = false
     selectedType.value = null
     selectedTypeIndex.value = -1
@@ -93,6 +93,7 @@ export const useSchemaEditorStore = defineStore('schemaEditor', () => {
         if (!('to_entity' in rel)) rel.to_entity = ''
       }
     }
+    if (!('guideline' in cloned)) cloned.guideline = ''
     draft.value = cloned
     isDirty.value = false
     selectedType.value = null
@@ -110,6 +111,13 @@ export const useSchemaEditorStore = defineStore('schemaEditor', () => {
   function setSchemaName(name) {
     if (!draft.value) return
     draft.value.name = name
+    isDirty.value = true
+  }
+
+  // --- Guideline ---
+  function setGuideline(html) {
+    if (!draft.value) return
+    draft.value.guideline = html
     isDirty.value = true
   }
 
@@ -265,7 +273,7 @@ export const useSchemaEditorStore = defineStore('schemaEditor', () => {
     draft, isDirty, selectedType, selectedTypeIndex,
     schemaName, entities, relations, previewColors,
     selectedItem, validationErrors, isValid,
-    createNew, loadFromObject, reset, setSchemaName,
+    createNew, loadFromObject, reset, setSchemaName, setGuideline,
     selectItem,
     addEntity, addRelation, removeEntity, removeRelation,
     renameType, moveType, updateRelationEndpoints,

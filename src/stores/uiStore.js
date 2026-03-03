@@ -5,6 +5,7 @@ import { PAGE_SIZE } from '../utils/constants.js'
 export const useUiStore = defineStore('ui', () => {
   const showAttributes = ref(true)
   const showAnnotationId = ref(false)
+  const showGuideline = ref(false)
   const searchQuery = ref('')
   const currentPage = ref(0)
   const pageSize = ref(PAGE_SIZE)
@@ -16,6 +17,10 @@ export const useUiStore = defineStore('ui', () => {
 
   function toggleAnnotationId() {
     showAnnotationId.value = !showAnnotationId.value
+  }
+
+  function toggleGuideline() {
+    showGuideline.value = !showGuideline.value
   }
 
   function setSearch(q) {
@@ -33,12 +38,14 @@ export const useUiStore = defineStore('ui', () => {
   return {
     showAttributes,
     showAnnotationId,
+    showGuideline,
     searchQuery,
     currentPage,
     pageSize,
     hoveredEntityId,
     toggleAttributes,
     toggleAnnotationId,
+    toggleGuideline,
     setSearch,
     setPage,
     setHoveredEntityId,
