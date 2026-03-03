@@ -11,7 +11,8 @@
           "end": 55,
           "type": "Entity",
           "attrs": {
-            "concept": { "id": "A1", "attrKey": "concept", "attrValue": "E11.9", "attrType": "text", "annotationValue": "", "attrIcon": "" },
+            "concept": { "id": "A1", "attrKey": "concept", "attrValue": "C12312312", "attrType": "text", "annotationValue": "", "attrIcon": "" },
+            "vocabulary": { "id": "A11", "attrKey": "vocabulary", "attrValue": "LNC", "attrType": "text", "annotationValue": "", "attrIcon": "" },
             "certainty": { "id": "A2", "attrKey": "certainty", "attrValue": "positive", "attrType": "enum", "annotationValue": "", "attrIcon": "" }
           }
         }
@@ -26,7 +27,8 @@
           "end": 80,
           "type": "Entity",
           "attrs": {
-            "concept": { "id": "A3", "attrKey": "concept", "attrValue": "C0025598", "attrType": "text", "annotationValue": "", "attrIcon": "" }
+            "concept": { "id": "A3", "attrKey": "concept", "attrValue": "C0025598", "attrType": "text", "annotationValue": "", "attrIcon": "" },
+            "vocabulary": { "id": "A31", "attrKey": "vocabulary", "attrValue": "LNC", "attrType": "text", "annotationValue": "", "attrIcon": "" }
           }
         }
       ],
