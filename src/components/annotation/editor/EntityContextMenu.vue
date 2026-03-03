@@ -8,13 +8,11 @@
     <!-- Relation menu items -->
     <template v-if="availableRelations.length > 0">
       <button
-        v-for="(rel, relIndex) in availableRelations"
-        :key="`${rel.name}-${rel.from_entity}-${rel.to_entity}-${relIndex}`"
         class="w-full text-left px-3 py-1.5 text-sm hover:bg-blue-50 text-blue-700 flex items-center gap-2"
-        @click="startRelation(rel)"
+        @click="startRelation"
       >
         <font-awesome-icon :icon="['fas', 'arrow-right-long']" class="text-xs text-blue-400" />
-        Add {{ rel.name }}
+        Add Relation(s)
       </button>
       <div class="border-t border-gray-100 my-0.5"></div>
     </template>
@@ -66,7 +64,9 @@ const VIEWPORT_PADDING = 8
 
 const availableRelations = computed(() => {
   if (!annotationStore.editingEntity) return []
-  return schemaStore.getRelationsForEntity(annotationStore.editingEntity.semantic)
+  return schemaStore
+    .getRelationsForEntity(annotationStore.editingEntity.semantic)
+    .filter((rel) => rel.to_entity && rel.name)
 })
 
 const currentConcept = computed(() => {
@@ -136,12 +136,13 @@ function handleViewportChange() {
   updatePopupPosition()
 }
 
-function startRelation(rel) {
+function startRelation() {
   visible.value = false
   const entity = annotationStore.editingEntity
   const offsetKey = annotationStore.editingOffset
   if (entity && offsetKey) {
-    annotationStore.startRelationMode(rel.name, rel.to_entity, entity, offsetKey)
+    const targetEntityTypes = schemaStore.getTargetEntityTypesForEntity(entity.semantic)
+    annotationStore.startRelationMode(entity, offsetKey, targetEntityTypes)
   }
 }
 

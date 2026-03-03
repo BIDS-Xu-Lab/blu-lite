@@ -15,11 +15,11 @@
         <div class="relation-mode-banner flex items-center justify-between px-4 py-1.5 text-sm">
           <span>
             <font-awesome-icon :icon="['fas', 'arrow-right-long']" class="mr-1" />
-            Click a
-            <strong>{{ targetEntityType }}</strong>
-            entity to create
-            <strong>{{ annotationStore.pendingRelation.relationType }}</strong>
-            relation
+            Click a compatible entity label to add relation(s)
+            <template v-if="targetEntityTypeHint">
+              :
+              <strong>{{ targetEntityTypeHint }}</strong>
+            </template>
           </span>
           <button
             class="text-xs px-2 py-0.5 rounded bg-white/70 hover:bg-white border border-blue-300 text-blue-600 ml-4"
@@ -75,9 +75,9 @@ const annotationStore = useAnnotationStore()
 
 const scrollContainerRef = ref(null)
 
-const targetEntityType = computed(() => {
+const targetEntityTypeHint = computed(() => {
   if (!annotationStore.pendingRelation) return ''
-  return annotationStore.pendingRelation.toEntity ?? ''
+  return annotationStore.pendingRelation.targetEntityTypes?.join(', ') ?? ''
 })
 
 function handleKeydown(event) {

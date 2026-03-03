@@ -4,18 +4,62 @@
     {
       "name": "disease",
       "attrs": [
-        { "name": "concept", "value_type": "text", "values": [], "default_value": "" },
-        { "name": "comment", "value_type": "text", "values": [], "default_value": "" },
-        { "name": "certainty", "value_type": "enum", "values": ["positive", "negated", "possible", "NA"], "default_value": "NA" }
+        {
+          "name": "concept",
+          "value_type": "text",
+          "values": [],
+          "default_value": ""
+        },
+        {
+          "name": "comment",
+          "value_type": "text",
+          "values": [],
+          "default_value": ""
+        },
+        {
+          "name": "certainty",
+          "value_type": "enum",
+          "values": [
+            "positive",
+            "negated",
+            "possible",
+            "NA"
+          ],
+          "default_value": "NA"
+        }
       ]
     },
     {
       "name": "drug",
       "attrs": [
-        { "name": "concept", "value_type": "text", "values": [], "default_value": "" },
-        { "name": "comment", "value_type": "text", "values": [], "default_value": "" },
-        { "name": "certainty", "value_type": "enum", "values": ["positive", "negated", "possible", "NA"], "default_value": "NA" }
+        {
+          "name": "concept",
+          "value_type": "text",
+          "values": [],
+          "default_value": ""
+        },
+        {
+          "name": "comment",
+          "value_type": "text",
+          "values": [],
+          "default_value": ""
+        },
+        {
+          "name": "certainty",
+          "value_type": "enum",
+          "values": [
+            "positive",
+            "negated",
+            "possible",
+            "NA"
+          ],
+          "default_value": "NA"
+        }
       ]
+    },
+    {
+      "name": "event",
+      "attrs": []
     }
   ],
   "relation": [
@@ -24,7 +68,13 @@
       "from_entity": "drug",
       "to_entity": "disease",
       "attrs": []
+    },
+    {
+      "name": "side_effect",
+      "from_entity": "drug",
+      "to_entity": "event",
+      "attrs": []
     }
   ],
-  "guideline": "<h2>Disease &amp; Drug Annotation Guideline</h2><h3>Overview</h3><p>Annotate clinical text to identify diseases/conditions and drugs/medications, assign normalization codes, and link treatments to the conditions they address.</p><h3>Entity Types</h3><h4>disease</h4><p>Mark any mention of a disease, disorder, symptom, or clinical finding (e.g., <em>type 2 diabetes mellitus</em>, <em>hypertension</em>, <em>headache</em>). Annotate the minimal span that fully identifies the condition.</p><h4>drug</h4><p>Mark any medication, drug name, or pharmacological agent (e.g., <em>metformin</em>, <em>lisinopril</em>). Include dosage only when it is part of the named entity span recognized in the source vocabulary.</p><h3>Attributes</h3><ul><li><strong>concept</strong> — Normalization code from a standard vocabulary (e.g., RxNorm CUI for drugs, ICD-10 or SNOMED CT code for diseases). Leave blank if no suitable code is found.</li><li><strong>certainty</strong> — Assertion status of the entity in context:<ul><li><code>positive</code> — confirmed present (<em>&ldquo;diagnosed with diabetes&rdquo;</em>)</li><li><code>negated</code> — explicitly absent (<em>&ldquo;no evidence of infection&rdquo;</em>)</li><li><code>possible</code> — uncertain or suspected (<em>&ldquo;possible pneumonia&rdquo;</em>)</li><li><code>NA</code> — not applicable or cannot be determined</li></ul></li><li><strong>comment</strong> — Optional free-text note for ambiguous cases or annotator reasoning.</li></ul><h3>Relation: treatment</h3><p>Draw a <strong>treatment</strong> relation from a <em>drug</em> entity to the <em>disease</em> entity it treats when the therapeutic relationship is explicitly stated in the text (e.g., <em>&ldquo;atorvastatin for hyperlipidemia&rdquo;</em>).</p><h3>Key Rules</h3><ol><li>Annotate all mentions, including historical and family history references.</li><li>Apply <code>certainty</code> based on the author&rsquo;s assertion, not the annotator&rsquo;s clinical knowledge.</li><li>Do not annotate generic drug classes (e.g., <em>&ldquo;antibiotics&rdquo;</em>) unless a specific agent is named.</li><li>When the same span could be both a disease and a symptom, prefer the most specific entity type supported by context.</li></ol>"
+  "guideline": "<h2>Disease &amp; Drug Annotation Guideline</h2><h3>Overview</h3><p>Annotate clinical text to identify diseases/conditions and drugs/medications, assign normalization codes, and link treatments to the conditions they address.</p><h3>Entity Types</h3><h4>disease</h4><p>Mark any mention of a disease, disorder, symptom, or clinical finding (e.g., <em>type 2 diabetes mellitus</em>, <em>hypertension</em>, <em>headache</em>). Annotate the minimal span that fully identifies the condition.</p><h4>drug</h4><p>Mark any medication, drug name, or pharmacological agent (e.g., <em>metformin</em>, <em>lisinopril</em>). Include dosage only when it is part of the named entity span recognized in the source vocabulary.</p><h3>Attributes</h3><p><br></p><h3>Relation: treatment</h3><p>Draw a <strong>treatment</strong> relation from a <em>drug</em> entity to the <em>disease</em> entity it treats when the therapeutic relationship is explicitly stated in the text (e.g., <em>“atorvastatin for hyperlipidemia”</em>).</p><h3>Key Rules</h3><ol><li><span class=\"ql-ui\" contenteditable=\"false\"></span>Annotate all mentions, including historical and family history references.</li><li><span class=\"ql-ui\" contenteditable=\"false\"></span>Apply <code>certainty</code> based on the author’s assertion, not the annotator’s clinical knowledge.</li><li><span class=\"ql-ui\" contenteditable=\"false\"></span>Do not annotate generic drug classes (e.g., <em>“antibiotics”</em>) unless a specific agent is named.</li><li><span class=\"ql-ui\" contenteditable=\"false\"></span>When the same span could be both a disease and a symptom, prefer the most specific entity type supported by context.</li></ol>"
 }

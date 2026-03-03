@@ -21,6 +21,21 @@ export const useSchemaStore = defineStore('schema', () => {
     return relationTypes.value.filter((r) => r.from_entity === entityName)
   }
 
+  function getTargetEntityTypesForEntity(entityName) {
+    const set = new Set(
+      getRelationsForEntity(entityName)
+        .map((r) => r.to_entity)
+        .filter(Boolean),
+    )
+    return [...set]
+  }
+
+  function getRelationsBetweenEntities(fromEntityName, toEntityName) {
+    return relationTypes.value.filter(
+      (r) => r.from_entity === fromEntityName && r.to_entity === toEntityName,
+    )
+  }
+
   function getRelationByName(name) {
     return relationTypes.value.find((r) => r.name === name) ?? null
   }
@@ -57,6 +72,8 @@ export const useSchemaStore = defineStore('schema', () => {
     getEntityAttrs,
     getEntityColor,
     getRelationsForEntity,
+    getTargetEntityTypesForEntity,
+    getRelationsBetweenEntities,
     getRelationByName,
     loadSchema,
     clearSchema,

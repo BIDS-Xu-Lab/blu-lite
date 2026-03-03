@@ -1,10 +1,12 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 import { useFileStore } from './fileStore.js'
+import { useSchemaStore } from './schemaStore.js'
 import { generateId } from '../utils/idGenerator.js'
 
 export const useAnnotationStore = defineStore('annotation', () => {
   const fileStore = useFileStore()
+  const schemaStore = useSchemaStore()
 
   const pendingSelection = ref(null)
   const showTypeSelector = ref(false)
@@ -15,7 +17,7 @@ export const useAnnotationStore = defineStore('annotation', () => {
 
   // Relation mode state
   const relationMode = ref(false)
-  const pendingRelation = ref(null) // { relationType, toEntity, fromEntity, fromOffsetKey }
+  const pendingRelation = ref(null) // { fromEntity, fromOffsetKey, targetEntityTypes }
 
   // Concept mapping state
   const conceptMappingTarget = ref(null) // { type: 'entity'|'relation', offsetKey, index, annotation }
@@ -78,9 +80,9 @@ export const useAnnotationStore = defineStore('annotation', () => {
     return entitiesInRelations.value.has(`${entity.begin}-${entity.end}-${entity.semantic}`)
   }
 
-  function startRelationMode(relationType, toEntity, fromEntity, fromOffsetKey) {
+  function startRelationMode(fromEntity, fromOffsetKey, targetEntityTypes = []) {
     relationMode.value = true
-    pendingRelation.value = { relationType, toEntity, fromEntity, fromOffsetKey }
+    pendingRelation.value = { fromEntity, fromOffsetKey, targetEntityTypes }
   }
 
   function cancelRelationMode() {
@@ -88,9 +90,28 @@ export const useAnnotationStore = defineStore('annotation', () => {
     pendingRelation.value = null
   }
 
+  function isPendingRelationTarget(entity) {
+    if (!pendingRelation.value || !entity) return false
+
+    const { fromEntity, targetEntityTypes } = pendingRelation.value
+    const isSelf =
+      entity.begin === fromEntity.begin &&
+      entity.end === fromEntity.end &&
+      entity.semantic === fromEntity.semantic
+
+    if (isSelf) return false
+    return targetEntityTypes.includes(entity.semantic)
+  }
+
   function createRelation(toEntity) {
     if (!pendingRelation.value || !fileStore.activeFile) return null
-    const { relationType, fromEntity, fromOffsetKey } = pendingRelation.value
+    if (!isPendingRelationTarget(toEntity)) return null
+
+    const { fromEntity, fromOffsetKey } = pendingRelation.value
+    const compatibleRelations = schemaStore.getRelationsBetweenEntities(fromEntity.semantic, toEntity.semantic)
+    if (compatibleRelations.length === 0) return null
+
+    const relationType = compatibleRelations[0].name
     const indexes = fileStore.activeFile.indexes
 
     if (!indexes[fromOffsetKey]) {
@@ -365,6 +386,7 @@ export const useAnnotationStore = defineStore('annotation', () => {
     relationCount,
     entitiesInRelations,
     isEntityInRelation,
+    isPendingRelationTarget,
     charCount,
     tokenCount,
     setPendingSelection,

@@ -57,10 +57,7 @@ const hasAttrs = computed(() => {
 
 const isRelationTarget = computed(() => {
   if (!annotationStore.relationMode || !annotationStore.pendingRelation) return false
-  // Must match the to_entity type and not be the from entity itself
-  const fromEnt = annotationStore.pendingRelation.fromEntity
-  if (props.entity.begin === fromEnt.begin && props.entity.end === fromEnt.end && props.entity.semantic === fromEnt.semantic) return false
-  return props.entity.semantic === annotationStore.pendingRelation.toEntity
+  return annotationStore.isPendingRelationTarget(props.entity)
 })
 
 const isRelationFrom = computed(() => {
