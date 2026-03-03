@@ -19,7 +19,7 @@
         <div class="text-center">
           <font-awesome-icon :icon="['fas', 'puzzle-piece']" class="text-5xl text-gray-200 mb-4" />
           <p class="text-sm mb-1">No schema loaded</p>
-          <p class="text-xs">Click <strong>New</strong> to create a blank schema or <strong>Load File</strong> to open an existing one.</p>
+          <p class="text-xs">Load a schema in the Annotation view first, or click <strong>New</strong> to create a blank schema.</p>
         </div>
       </div>
     </div>
@@ -40,13 +40,23 @@
 </template>
 
 <script setup>
+import { onMounted } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
 import { useSchemaEditorStore } from '../stores/schemaEditorStore.js'
+import { useSchemaStore } from '../stores/schemaStore.js'
 import SchemaMenuBar from '../components/schema/SchemaMenuBar.vue'
 import TypeListPanel from '../components/schema/TypeListPanel.vue'
 import TypeDetailPanel from '../components/schema/TypeDetailPanel.vue'
 
 const editorStore = useSchemaEditorStore()
+const schemaStore = useSchemaStore()
+
+// Auto-load the annotation view's schema into the editor on enter
+onMounted(() => {
+  if (schemaStore.isLoaded && !editorStore.draft) {
+    editorStore.loadFromObject(schemaStore.schema)
+  }
+})
 
 onBeforeRouteLeave(() => {
   if (editorStore.isDirty) {

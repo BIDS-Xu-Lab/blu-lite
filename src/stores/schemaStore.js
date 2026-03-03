@@ -6,6 +6,7 @@ export const useSchemaStore = defineStore('schema', () => {
   const schema = ref(null)
   const isLoaded = ref(false)
   const entityColorMap = ref({})
+  const schemaFileHandle = ref(null)
 
   const schemaName = computed(() => schema.value?.name ?? '')
   const entityTypes = computed(() => schema.value?.entity ?? [])
@@ -28,22 +29,27 @@ export const useSchemaStore = defineStore('schema', () => {
     return entityColorMap.value[entityName] ?? { bg: '#f3f4f6', text: '#374151', border: '#d1d5db' }
   }
 
-  function loadSchema(jsonObj) {
+  function loadSchema(jsonObj, fileHandle = null) {
     schema.value = jsonObj
     isLoaded.value = true
     entityColorMap.value = generateEntityColors(jsonObj.entity.map((e) => e.name))
+    if (fileHandle !== null) {
+      schemaFileHandle.value = fileHandle
+    }
   }
 
   function clearSchema() {
     schema.value = null
     isLoaded.value = false
     entityColorMap.value = {}
+    schemaFileHandle.value = null
   }
 
   return {
     schema,
     isLoaded,
     entityColorMap,
+    schemaFileHandle,
     schemaName,
     entityTypes,
     relationTypes,

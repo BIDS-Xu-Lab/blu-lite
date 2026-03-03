@@ -17,7 +17,7 @@ export function useSchema() {
     const text = await file.text()
     const parsed = JSON.parse(text)
     validateSchema(parsed)
-    schemaStore.loadSchema(parsed)
+    schemaStore.loadSchema(parsed, fileHandle)
     return parsed
   }
 

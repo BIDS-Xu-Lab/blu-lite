@@ -1,10 +1,10 @@
 <template>
   <div
-    class="flex items-start justify-between px-3 py-1.5 cursor-pointer border-b border-gray-50 transition-colors group"
+    class="flex items-center justify-between px-3 py-1.5 cursor-pointer border-b border-gray-50 transition-colors group"
     :class="active ? 'bg-yale-50 border-l-2 border-l-yale-400' : 'hover:bg-gray-50 border-l-2 border-l-transparent'"
     @click="$emit('select')"
   >
-    <div class="flex items-start gap-2 min-w-0 flex-1">
+    <div class="flex items-center gap-2 min-w-0 flex-1">
       <span
         v-if="color"
         class="w-3 h-3 rounded-sm flex-shrink-0"
