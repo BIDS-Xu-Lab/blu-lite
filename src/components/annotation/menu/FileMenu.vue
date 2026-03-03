@@ -25,7 +25,7 @@ const menu = ref()
 
 const items = ref([
   {
-    label: 'Load File(s)',
+    label: 'Load a Folder',
     icon: 'pi pi-folder-open',
     command: async () => {
       if (!schemaStore.isLoaded) {
@@ -42,13 +42,19 @@ const items = ref([
     },
   },
   {
-    label: 'Dump Files',
-    icon: 'pi pi-save',
+    label: 'Load JSON File(s)',
+    icon: 'pi pi-file',
     command: async () => {
+      if (!schemaStore.isLoaded) {
+        alert('Please load an annotation schema first.')
+        return
+      }
       try {
-        await fileStore.dumpAllFiles()
+        await fileStore.loadJsonFiles()
       } catch (e) {
-        console.error('Failed to dump files:', e)
+        if (e.name !== 'AbortError') {
+          console.error('Failed to load JSON files:', e)
+        }
       }
     },
   },

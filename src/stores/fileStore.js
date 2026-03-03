@@ -30,7 +30,8 @@ export const useFileStore = defineStore('files', () => {
   async function loadDirectory() {
     const handle = await window.showDirectoryPicker({ mode: 'readwrite' })
     directoryHandle.value = handle
-    const loadedFiles = []
+    const newFiles = []
+    const existingNames = new Set(files.value.map((f) => f.filename))
 
     for await (const entry of handle.values()) {
       if (entry.kind !== 'file') continue
@@ -52,15 +53,17 @@ export const useFileStore = defineStore('files', () => {
         await handle.removeEntry(entry.name)
 
         annotationData._dirty = false
-        loadedFiles.push(annotationData)
+        if (!existingNames.has(annotationData.filename)) {
+          newFiles.push(annotationData)
+        }
       } else if (name.endsWith('.json')) {
         try {
           const file = await entry.getFile()
           const text = await file.text()
           const parsed = JSON.parse(text)
-          if (validateAnnotationFile(parsed)) {
+          if (validateAnnotationFile(parsed) && !existingNames.has(parsed.filename)) {
             parsed._dirty = false
-            loadedFiles.push(parsed)
+            newFiles.push(parsed)
           }
         } catch {
           // Skip invalid JSON files
@@ -68,8 +71,55 @@ export const useFileStore = defineStore('files', () => {
       }
     }
 
-    files.value = loadedFiles
-    activeFileIndex.value = loadedFiles.length > 0 ? 0 : -1
+    if (newFiles.length > 0) {
+      const wasEmpty = files.value.length === 0
+      files.value.push(...newFiles)
+      if (wasEmpty) {
+        activeFileIndex.value = 0
+      }
+    }
+  }
+
+  async function loadJsonFiles() {
+    const handles = await window.showOpenFilePicker({
+      multiple: true,
+      types: [
+        {
+          description: 'JSON Files',
+          accept: { 'application/json': ['.json'] },
+        },
+      ],
+    })
+
+    const existingNames = new Set(files.value.map((f) => f.filename))
+    const newFiles = []
+
+    for (const handle of handles) {
+      try {
+        const file = await handle.getFile()
+        const text = await file.text()
+        const parsed = JSON.parse(text)
+        if (validateAnnotationFile(parsed) && !existingNames.has(parsed.filename)) {
+          parsed._dirty = false
+          newFiles.push(parsed)
+        }
+      } catch {
+        // Skip invalid files
+      }
+    }
+
+    if (newFiles.length > 0) {
+      const wasEmpty = files.value.length === 0
+      files.value.push(...newFiles)
+      if (wasEmpty) {
+        activeFileIndex.value = 0
+      }
+    }
+  }
+
+  function clearAllFiles() {
+    files.value = []
+    activeFileIndex.value = -1
   }
 
   function setActiveFile(index) {
@@ -144,6 +194,8 @@ export const useFileStore = defineStore('files', () => {
     totalFiles,
     sortedFiles,
     loadDirectory,
+    loadJsonFiles,
+    clearAllFiles,
     setActiveFile,
     markDirty,
     markActiveDirty,

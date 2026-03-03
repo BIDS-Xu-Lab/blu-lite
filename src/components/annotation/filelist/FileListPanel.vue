@@ -3,7 +3,7 @@
     <FileListHeader />
     <div class="flex-1 overflow-y-auto">
       <div v-if="fileStore.files.length === 0" class="p-4 text-sm text-gray-400 text-center">
-        No files loaded. Use File &gt; Load File(s) to open a directory.
+        No files loaded. Use File &gt; Load a Folder to open a directory.
       </div>
       <FileListItem
         v-for="(file, index) in pagedFiles"
