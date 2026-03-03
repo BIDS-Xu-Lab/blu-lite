@@ -47,6 +47,7 @@
 .entity-label {
   display: inline-flex;
   flex-direction: column;
+  position: relative;
   font-size: 0.65rem;
   font-weight: 600;
   padding: 1px 5px;
@@ -56,6 +57,25 @@
   white-space: nowrap;
   text-transform: uppercase;
   letter-spacing: 0.03em;
+}
+
+.entity-link-trigger {
+  position: absolute;
+  top: 0;
+  right: -1.1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  background: #ffffff;
+  font-size: 8px;
+  opacity: 0.9;
+}
+
+.entity-link-trigger:hover {
+  opacity: 1;
+  filter: brightness(0.95);
 }
 
 .entity-label:hover {

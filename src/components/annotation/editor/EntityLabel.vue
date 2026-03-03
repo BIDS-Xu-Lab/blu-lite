@@ -17,6 +17,16 @@
     @mouseenter="uiStore.setHoveredEntityId(entity.id)"
     @mouseleave="uiStore.setHoveredEntityId(null)"
   >
+    <button
+      v-if="showLinkTrigger"
+      type="button"
+      class="entity-link-trigger"
+      title="Add relation"
+      aria-label="Add relation"
+      @click.stop="startRelationMode"
+    >
+      <font-awesome-icon :icon="['fas', 'link']" />
+    </button>
     {{ entity.semantic }}
     <span v-if="uiStore.showAnnotationId" class="opacity-60 ml-0.5">#{{ entity.id }}</span>
     <template v-if="uiStore.showAttributes && hasAttrs">
@@ -35,6 +45,7 @@
 import { computed } from 'vue'
 import { useUiStore } from '../../../stores/uiStore.js'
 import { useAnnotationStore } from '../../../stores/annotationStore.js'
+import { useSchemaStore } from '../../../stores/schemaStore.js'
 
 const props = defineProps({
   entity: { type: Object, required: true },
@@ -45,6 +56,7 @@ const props = defineProps({
 
 const uiStore = useUiStore()
 const annotationStore = useAnnotationStore()
+const schemaStore = useSchemaStore()
 
 const labelStyle = computed(() => ({
   backgroundColor: props.color.bg,
@@ -54,6 +66,16 @@ const labelStyle = computed(() => ({
 
 const hasAttrs = computed(() => {
   return props.entity.attrs && Object.keys(props.entity.attrs).length > 0
+})
+
+const availableRelations = computed(() => {
+  return schemaStore
+    .getRelationsForEntity(props.entity.semantic)
+    .filter((rel) => rel.to_entity && rel.name)
+})
+
+const showLinkTrigger = computed(() => {
+  return !annotationStore.relationMode && availableRelations.value.length > 0
 })
 
 const isRelationTarget = computed(() => {
@@ -115,5 +137,10 @@ function handleClick(event) {
     bubbles: true,
   })
   event.target.dispatchEvent(customEvent)
+}
+
+function startRelationMode() {
+  const targetEntityTypes = schemaStore.getTargetEntityTypesForEntity(props.entity.semantic)
+  annotationStore.startRelationMode(props.entity, props.offsetKey, targetEntityTypes)
 }
 </script>
