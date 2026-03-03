@@ -138,3 +138,52 @@
   border-bottom: 2px solid #eab308;
   border-radius: 2px;
 }
+
+/* Candidate blocks: dotted styling for auto-annotation candidates */
+.candidate-block {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  vertical-align: top;
+  line-height: 1.8;
+}
+
+.candidate-block-text {
+  display: inline;
+  white-space: pre-wrap;
+}
+
+.candidate-block-labels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  padding: 1px 0 4px 0;
+  line-height: 1;
+}
+
+.candidate-segment {
+  border-radius: 2px;
+  padding: 1px 0;
+}
+
+.candidate-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 3px;
+  line-height: 1.4;
+  cursor: pointer;
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  opacity: 0.7;
+  transition: opacity 0.15s;
+}
+
+.candidate-label:hover {
+  opacity: 1;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}

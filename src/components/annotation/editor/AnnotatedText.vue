@@ -17,7 +17,7 @@
 
       <!-- Annotated block: inline-flex column with text on top, labels below -->
       <span
-        v-else
+        v-else-if="block.type === 'annotated'"
         class="annotated-block"
       >
         <!-- Text row: render all segments in this block -->
@@ -46,6 +46,33 @@
           />
         </span>
       </span>
+
+      <!-- Candidate block: dotted styling for auto-annotation candidates -->
+      <span
+        v-else-if="block.type === 'candidate'"
+        class="candidate-block"
+      >
+        <span class="candidate-block-text">
+          <template v-for="seg in block.segments" :key="seg.start">
+            <span
+              v-for="part in splitWithHighlight(seg.text, seg.start)"
+              :key="part.offset"
+              :data-offset="part.offset"
+              :style="candidateSegmentStyle(seg)"
+              class="candidate-segment"
+            >{{ part.text }}</span>
+          </template>
+        </span>
+
+        <span class="candidate-block-labels">
+          <CandidateLabel
+            v-for="candidate in block.candidates"
+            :key="candidate.id"
+            :candidate="candidate"
+            :color="schemaStore.getEntityColor(candidate.semantic)"
+          />
+        </span>
+      </span>
     </template>
   </div>
 </template>
@@ -56,21 +83,27 @@ import { useFileStore } from '../../../stores/fileStore.js'
 import { useSchemaStore } from '../../../stores/schemaStore.js'
 import { useUiStore } from '../../../stores/uiStore.js'
 import { useAnnotationStore } from '../../../stores/annotationStore.js'
+import { useCandidateStore } from '../../../stores/candidateStore.js'
 import { useTextRenderer } from '../../../composables/useTextRenderer.js'
 import { useAnnotation } from '../../../composables/useAnnotation.js'
 import EntityLabel from './EntityLabel.vue'
+import CandidateLabel from './CandidateLabel.vue'
 
 const fileStore = useFileStore()
 const schemaStore = useSchemaStore()
 const uiStore = useUiStore()
 const annotationStore = useAnnotationStore()
+const candidateStore = useCandidateStore()
 
 const containerRef = ref(null)
 
 const content = computed(() => fileStore.activeFile?.content ?? '')
 const indexes = computed(() => fileStore.activeFile?.indexes ?? {})
+const candidatesForRenderer = computed(() =>
+  candidateStore.isActive ? candidateStore.candidates : [],
+)
 
-const { renderBlocks } = useTextRenderer(content, indexes)
+const { renderBlocks } = useTextRenderer(content, indexes, candidatesForRenderer)
 const { onMouseUp } = useAnnotation()
 
 function splitWithHighlight(text, baseOffset) {
@@ -110,6 +143,15 @@ function partAnnotatedStyle(seg, highlighted) {
     return { ...base, backgroundColor: '#fde047', borderBottom: '2px solid #ca8a04' }
   }
   return base
+}
+
+function candidateSegmentStyle(seg) {
+  if (seg.candidates.length === 0) return {}
+  const primary = seg.candidates[0]
+  const color = schemaStore.getEntityColor(primary.candidate.semantic)
+  return {
+    borderBottom: `2px dotted ${color.border}`,
+  }
 }
 
 function isSegmentHovered(seg) {

@@ -1,12 +1,7 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 import { useFileStore } from './fileStore.js'
-
-let entityIdCounter = Date.now()
-
-function generateId() {
-  return String(++entityIdCounter)
-}
+import { generateId } from '../utils/idGenerator.js'
 
 export const useAnnotationStore = defineStore('annotation', () => {
   const fileStore = useFileStore()

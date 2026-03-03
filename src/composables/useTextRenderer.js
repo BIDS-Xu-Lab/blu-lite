@@ -1,12 +1,13 @@
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 
-export function useTextRenderer(content, indexes) {
-  // Flat segments split at every entity boundary
+export function useTextRenderer(content, indexes, candidates = ref([])) {
+  // Flat segments split at every entity and candidate boundary
   const segments = computed(() => {
     if (!content.value) return []
 
     const boundaries = new Set([0, content.value.length])
     const entitySpans = []
+    const candidateSpans = []
 
     for (const [offsetKey, indexData] of Object.entries(indexes.value || {})) {
       if (!indexData.Entity) continue
@@ -24,6 +25,16 @@ export function useTextRenderer(content, indexes) {
       }
     }
 
+    for (const candidate of candidates.value || []) {
+      boundaries.add(candidate.begin)
+      boundaries.add(candidate.end)
+      candidateSpans.push({
+        begin: candidate.begin,
+        end: candidate.end,
+        candidate,
+      })
+    }
+
     const sorted = [...boundaries].sort((a, b) => a - b)
     const result = []
 
@@ -36,14 +47,17 @@ export function useTextRenderer(content, indexes) {
         (span) => span.begin <= start && span.end >= end,
       )
 
-      result.push({ text, start, end, entities: covering })
+      const coveringCandidates = candidateSpans.filter(
+        (span) => span.begin <= start && span.end >= end,
+      )
+
+      result.push({ text, start, end, entities: covering, candidates: coveringCandidates })
     }
 
     return result
   })
 
-  // Merge segments into "render blocks": plain text or annotated blocks
-  // An annotated block wraps consecutive annotated segments and lists all entities
+  // Merge segments into "render blocks": plain text, annotated blocks, or candidate blocks
   const renderBlocks = computed(() => {
     const segs = segments.value
     if (segs.length === 0) return []
@@ -54,7 +68,7 @@ export function useTextRenderer(content, indexes) {
     while (i < segs.length) {
       const seg = segs[i]
 
-      if (seg.entities.length === 0) {
+      if (seg.entities.length === 0 && seg.candidates.length === 0) {
         // Plain text block
         blocks.push({
           type: 'plain',
@@ -63,7 +77,7 @@ export function useTextRenderer(content, indexes) {
           end: seg.end,
         })
         i++
-      } else {
+      } else if (seg.entities.length > 0) {
         // Start of an annotated block — collect consecutive annotated segments
         // that share a merged entity range
         const blockSegments = [seg]
@@ -125,6 +139,47 @@ export function useTextRenderer(content, indexes) {
           end: blockSegments[blockSegments.length - 1].end,
           segments: blockSegments,
           entities: [...allEntitiesMap.values()],
+        })
+
+        i = j
+      } else {
+        // Candidate block: seg.candidates.length > 0, no entities
+        const blockSegments = [seg]
+        const candidateSet = new Set(seg.candidates.map((c) => c.candidate.id))
+
+        let j = i + 1
+        while (j < segs.length && segs[j].entities.length === 0 && segs[j].candidates.length > 0) {
+          const nextSeg = segs[j]
+          let connected = false
+          for (const cs of nextSeg.candidates) {
+            if (candidateSet.has(cs.candidate.id)) {
+              connected = true
+              break
+            }
+          }
+          if (!connected) break
+          blockSegments.push(nextSeg)
+          for (const cs of nextSeg.candidates) {
+            candidateSet.add(cs.candidate.id)
+          }
+          j++
+        }
+
+        const allCandidatesMap = new Map()
+        for (const bs of blockSegments) {
+          for (const cs of bs.candidates) {
+            if (!allCandidatesMap.has(cs.candidate.id)) {
+              allCandidatesMap.set(cs.candidate.id, cs.candidate)
+            }
+          }
+        }
+
+        blocks.push({
+          type: 'candidate',
+          start: blockSegments[0].start,
+          end: blockSegments[blockSegments.length - 1].end,
+          segments: blockSegments,
+          candidates: [...allCandidatesMap.values()],
         })
 
         i = j
