@@ -20,6 +20,8 @@ import { useSchemaStore } from '../../../stores/schemaStore.js'
 import { useFileStore } from '../../../stores/fileStore.js'
 import basicSchema from '../../../samples/basic/schema.json'
 import basicSampleNote from '../../../samples/basic/sample_note.json'
+import basicSampleNote2 from '../../../samples/basic/sample_note_2.json'
+import basicSampleNote3 from '../../../samples/basic/sample_note_3.json'
 
 const schemaStore = useSchemaStore()
 const fileStore = useFileStore()
@@ -31,7 +33,11 @@ const items = ref([
     icon: 'pi pi-database',
     command: () => {
       schemaStore.loadSchema(structuredClone(basicSchema))
-      fileStore.files = [{ ...structuredClone(basicSampleNote), _dirty: false }]
+      fileStore.files = [
+        { ...structuredClone(basicSampleNote), _dirty: false },
+        { ...structuredClone(basicSampleNote2), _dirty: false },
+        { ...structuredClone(basicSampleNote3), _dirty: false },
+      ]
       fileStore.activeFileIndex = 0
     },
   },

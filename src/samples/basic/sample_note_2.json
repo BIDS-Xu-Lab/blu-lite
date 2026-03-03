@@ -1,0 +1,37 @@
+{
+  "filename": "sample_note_2.json",
+  "content": "The patient presents with acute bronchitis and was prescribed azithromycin 250mg for five days. No known drug allergies.",
+  "indexes": {
+    "26": {
+      "Entity": [
+        {
+          "id": "E1",
+          "semantic": "disease",
+          "begin": 26,
+          "end": 42,
+          "type": "Entity",
+          "attrs": {
+            "certainty": { "id": "A1", "attrKey": "certainty", "attrValue": "positive", "attrType": "enum", "annotationValue": "", "attrIcon": "" }
+          }
+        }
+      ]
+    },
+    "62": {
+      "Entity": [
+        { "id": "E2", "semantic": "drug", "begin": 62, "end": 74, "type": "Entity", "attrs": {} }
+      ],
+      "Relation": [
+        {
+          "id": "R1",
+          "semantic": "treatment",
+          "type": "Relation",
+          "begin": 62,
+          "end": 74,
+          "fromEnt": { "begin": 62, "end": 74, "semantic": "drug", "type": "Entity" },
+          "toEnt": { "begin": 26, "end": 42, "semantic": "disease", "type": "Entity" },
+          "attrs": {}
+        }
+      ]
+    }
+  }
+}

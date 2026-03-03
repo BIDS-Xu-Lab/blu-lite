@@ -1,0 +1,65 @@
+{
+  "filename": "sample_note_3.json",
+  "content": "Patient was started on warfarin for atrial fibrillation. She denies any chest pain or shortness of breath.",
+  "indexes": {
+    "23": {
+      "Entity": [
+        { "id": "E1", "semantic": "drug", "begin": 23, "end": 31, "type": "Entity", "attrs": {} }
+      ],
+      "Relation": [
+        {
+          "id": "R1",
+          "semantic": "treatment",
+          "type": "Relation",
+          "begin": 23,
+          "end": 31,
+          "fromEnt": { "begin": 23, "end": 31, "semantic": "drug", "type": "Entity" },
+          "toEnt": { "begin": 36, "end": 55, "semantic": "disease", "type": "Entity" },
+          "attrs": {}
+        }
+      ]
+    },
+    "36": {
+      "Entity": [
+        {
+          "id": "E2",
+          "semantic": "disease",
+          "begin": 36,
+          "end": 55,
+          "type": "Entity",
+          "attrs": {
+            "certainty": { "id": "A1", "attrKey": "certainty", "attrValue": "positive", "attrType": "enum", "annotationValue": "", "attrIcon": "" }
+          }
+        }
+      ]
+    },
+    "72": {
+      "Entity": [
+        {
+          "id": "E3",
+          "semantic": "disease",
+          "begin": 72,
+          "end": 82,
+          "type": "Entity",
+          "attrs": {
+            "certainty": { "id": "A2", "attrKey": "certainty", "attrValue": "negated", "attrType": "enum", "annotationValue": "", "attrIcon": "" }
+          }
+        }
+      ]
+    },
+    "86": {
+      "Entity": [
+        {
+          "id": "E4",
+          "semantic": "disease",
+          "begin": 86,
+          "end": 105,
+          "type": "Entity",
+          "attrs": {
+            "certainty": { "id": "A3", "attrKey": "certainty", "attrValue": "negated", "attrType": "enum", "annotationValue": "", "attrIcon": "" }
+          }
+        }
+      ]
+    }
+  }
+}
