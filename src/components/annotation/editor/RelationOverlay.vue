@@ -24,15 +24,15 @@
         :points="curve.points"
         fill="none"
         stroke="#9ca3af"
-        stroke-width="1.5"
+        stroke-width="2"
         marker-end="url(#relation-arrow)"
       />
       <!-- Relation label background -->
       <rect
         :x="curve.labelX - curve.labelWidth / 2 - 5"
-        :y="curve.labelY - 8"
+        :y="curve.conceptText ? curve.labelY - 14 : curve.labelY - 8"
         :width="curve.labelWidth + 10"
-        height="16"
+        :height="curve.conceptText ? 28 : 16"
         rx="3"
         fill="white"
         stroke="#d1d5db"
@@ -43,12 +43,23 @@
       <!-- Relation label text -->
       <text
         :x="curve.labelX"
-        :y="curve.labelY + 4"
+        :y="curve.conceptText ? curve.labelY : curve.labelY + 4"
         text-anchor="middle"
         class="relation-label-text"
         @click.stop="handleRelationClick(curve, $event)"
       >
         {{ curve.semantic }}
+      </text>
+      <!-- Concept text below label name -->
+      <text
+        v-if="curve.conceptText"
+        :x="curve.labelX"
+        :y="curve.labelY + 12"
+        text-anchor="middle"
+        class="relation-concept-text"
+        @click.stop="handleRelationClick(curve, $event)"
+      >
+        {{ curve.conceptText }}
       </text>
     </template>
   </svg>
@@ -119,7 +130,7 @@ const deletePopup = ref({ visible: false, x: 0, y: 0, offsetKey: null, relationI
 const deleteMenuRef = ref(null)
 
 const SAME_ROW_THRESHOLD = 40
-const ROUTE_GAP = 8
+const ROUTE_GAP = 18
 
 function findEntityLabel(begin, end, semantic) {
   if (!props.scrollContainer) return null
@@ -189,7 +200,14 @@ const curves = computed(() => {
       labelY = routeY
     }
 
-    const labelWidth = rel.semantic.length * 6.5
+    const conceptId = rel.attrs?.concept?.attrValue
+    const vocab = rel.attrs?.vocabulary?.attrValue || ''
+    // originally I consider showing both vocab and id, but too long
+    const conceptText = conceptId ? (vocab ? `${conceptId}` : conceptId) : null
+    const labelWidth = Math.max(
+      rel.semantic.length * 6.5,
+      conceptText ? conceptText.length * 5 : 0,
+    )
 
     result.push({
       id: rel.id || `${rel._offsetKey}-${rel._relationIndex}`,
@@ -198,6 +216,7 @@ const curves = computed(() => {
       labelY,
       labelWidth,
       semantic: rel.semantic,
+      conceptText,
       _offsetKey: rel._offsetKey,
       _relationIndex: rel._relationIndex,
     })
@@ -343,5 +362,16 @@ onUnmounted(() => {
 
 .relation-label-text:hover {
   fill: #374151;
+}
+
+.relation-concept-text {
+  font-size: 0.55rem;
+  fill: #9ca3af;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.relation-concept-text:hover {
+  fill: #6b7280;
 }
 </style>

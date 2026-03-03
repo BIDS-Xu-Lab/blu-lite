@@ -10,12 +10,17 @@
       @mousedown="startDrag"
     >
       <div class="flex items-center gap-2 min-w-0">
-        <font-awesome-icon :icon="['fas', 'book-medical']" class="text-sm text-yale-500" />
-        <span class="text-sm font-medium text-gray-700 truncate">
-          {{ targetLabel }}
-        </span>
+        <font-awesome-icon :icon="['fas', 'book-medical']" class="text-sm text-yale-500 flex-shrink-0" />
+        <div class="min-w-0 flex flex-col">
+          <span class="text-sm font-medium text-gray-700 truncate">
+            {{ targetLabel }}
+          </span>
+          <span v-if="targetAnnotatedText" class="text-xs text-gray-400 truncate italic">
+            "{{ targetAnnotatedText }}"
+          </span>
+        </div>
       </div>
-      <button class="p-1 text-gray-400 hover:text-gray-600" @click="close">
+      <button class="p-1 text-gray-400 hover:text-gray-600 flex-shrink-0" @click="close">
         <font-awesome-icon :icon="['fas', 'xmark']" />
       </button>
     </div>
@@ -190,6 +195,15 @@ const targetLabel = computed(() => {
   } else {
     return `${target.annotation.semantic} (relation)`
   }
+})
+
+const targetAnnotatedText = computed(() => {
+  const target = annotationStore.conceptMappingTarget
+  if (!target || target.type !== 'entity') return ''
+  const file = fileStore.activeFile
+  if (!file) return ''
+  const e = target.annotation
+  return file.content?.slice(e.begin, e.end) || ''
 })
 
 const currentConcept = computed(() => {

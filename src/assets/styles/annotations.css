@@ -117,7 +117,16 @@
 
 /* Extra bottom margin on entity labels that are connected by a relation line */
 .entity-label.relation-connected {
-  margin-bottom: 20px;
+  margin-bottom: 36px;
+}
+
+@keyframes concept-mapping-blink {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.7); }
+  50% { box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.25); }
+}
+
+.concept-mapping-blink {
+  animation: concept-mapping-blink 0.8s ease-in-out infinite;
 }
 
 .plain-segment {
