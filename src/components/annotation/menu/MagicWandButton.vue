@@ -5,7 +5,7 @@
     @click="handleAutoAnnotate"
   >
     <font-awesome-icon :icon="['fas', 'wand-magic-sparkles']" class="text-xs text-gray-500" />
-    <span>Automation</span>
+    <span>Automate</span>
   </button>
 </template>
 
