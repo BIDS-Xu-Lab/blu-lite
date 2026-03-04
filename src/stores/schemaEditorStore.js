@@ -110,6 +110,7 @@ export const useSchemaEditorStore = defineStore('schemaEditor', () => {
   // --- Schema Name ---
   function setSchemaName(name) {
     if (!draft.value) return
+    if (draft.value.name === name) return
     draft.value.name = name
     isDirty.value = true
   }
@@ -117,7 +118,10 @@ export const useSchemaEditorStore = defineStore('schemaEditor', () => {
   // --- Guideline ---
   function setGuideline(html) {
     if (!draft.value) return
-    draft.value.guideline = html
+    const next = html ?? ''
+    const current = draft.value.guideline ?? ''
+    if (current === next) return
+    draft.value.guideline = next
     isDirty.value = true
   }
 
@@ -195,6 +199,7 @@ export const useSchemaEditorStore = defineStore('schemaEditor', () => {
     const arr = type === 'entity' ? draft.value.entity : draft.value.relation
     if (index < 0 || index >= arr.length) return
     const oldName = arr[index].name
+    if (oldName === newName) return
     arr[index].name = newName
     // Cascade: update relations referencing this entity
     if (type === 'entity' && oldName !== newName) {
@@ -210,6 +215,7 @@ export const useSchemaEditorStore = defineStore('schemaEditor', () => {
     if (!draft.value) return
     if (index < 0 || index >= draft.value.relation.length) return
     if (field !== 'from_entity' && field !== 'to_entity') return
+    if (draft.value.relation[index][field] === value) return
     draft.value.relation[index][field] = value
     isDirty.value = true
   }
@@ -253,7 +259,17 @@ export const useSchemaEditorStore = defineStore('schemaEditor', () => {
     if (typeIndex < 0 || typeIndex >= arr.length) return
     const item = arr[typeIndex]
     if (!item.attrs || attrIndex < 0 || attrIndex >= item.attrs.length) return
-    Object.assign(item.attrs[attrIndex], updates)
+    const target = item.attrs[attrIndex]
+    const hasEffectiveChange = Object.entries(updates).some(([key, nextValue]) => {
+      const prevValue = target[key]
+      if (Array.isArray(prevValue) && Array.isArray(nextValue)) {
+        if (prevValue.length !== nextValue.length) return true
+        return prevValue.some((value, i) => value !== nextValue[i])
+      }
+      return prevValue !== nextValue
+    })
+    if (!hasEffectiveChange) return
+    Object.assign(target, updates)
     isDirty.value = true
   }
 
