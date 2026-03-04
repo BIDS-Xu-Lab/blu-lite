@@ -44,7 +44,7 @@
         </div>
       </div>
 
-      <div ref="scrollContainerRef" class="flex-1 overflow-y-auto relative">
+      <div ref="scrollContainerRef" class="flex-1 overflow-y-auto overflow-x-hidden relative">
         
 
         <AnnotatedText />

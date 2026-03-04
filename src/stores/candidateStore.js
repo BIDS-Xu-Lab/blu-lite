@@ -15,6 +15,32 @@ export const useCandidateStore = defineStore('candidate', () => {
 
   const dictionaryMap = ref(new Map())
 
+  const TOKEN_CHAR_REGEX = /[\p{L}\p{N}_]/u
+
+  function isTokenChar(char) {
+    if (!char) return false
+    return TOKEN_CHAR_REGEX.test(char)
+  }
+
+  function isTokenBoundaryMatch(content, begin, end, text) {
+    const firstChar = text[0]
+    const lastChar = text[text.length - 1]
+    const requiresLeftBoundary = isTokenChar(firstChar)
+    const requiresRightBoundary = isTokenChar(lastChar)
+
+    if (requiresLeftBoundary && begin > 0) {
+      const leftChar = content[begin - 1]
+      if (isTokenChar(leftChar)) return false
+    }
+
+    if (requiresRightBoundary && end < content.length) {
+      const rightChar = content[end]
+      if (isTokenChar(rightChar)) return false
+    }
+
+    return true
+  }
+
   // Build a dictionary of unique annotations from all loaded files
   function buildDictionary() {
     const textMap = new Map() // surfaceText -> Map<semantic, { attrs, count }>
@@ -99,6 +125,11 @@ export const useCandidateStore = defineStore('candidate', () => {
 
         const begin = idx
         const end = idx + text.length
+
+        if (!isTokenBoundaryMatch(content, begin, end, text)) {
+          searchFrom = idx + 1
+          continue
+        }
 
         // Check overlap with existing annotations and already-found candidates
         const overlaps = occupiedRanges.some(
