@@ -273,26 +273,64 @@
                   </div>
                 </div>
 
-                <!-- Relation disagreements (compact list) -->
+                <!-- Relation disagreements -->
                 <div v-if="currentDocRelationDisagreements.length > 0" class="mt-4">
                   <div class="text-xs font-medium text-gray-700 mb-2">Relation Disagreements</div>
                   <div
                     v-for="(item, idx) in currentDocRelationDisagreements"
                     :key="'rel-' + idx"
-                    class="mb-2 border border-dashed rounded p-2 text-xs"
+                    class="mb-3 border border-dashed rounded-lg p-3"
                     :class="item.matchType === 'boundary' ? 'border-amber-300' : 'border-red-200'"
                   >
-                    <div class="flex items-center gap-2 mb-1">
-                      <span class="px-1 py-0.5 bg-gray-100 rounded text-gray-700 font-medium">{{ item.gold?.semantic || item.compare?.semantic }}</span>
-                      <span v-if="item.matchType === 'boundary'" class="text-amber-600">Partial match</span>
-                      <span v-else-if="item.matchType === 'gold_only'" class="text-red-500">Missing in {{ currentCompareAnnotator?.name }}</span>
-                      <span v-else class="text-red-500">Missing in {{ currentGoldAnnotator?.name }} (Gold)</span>
+                    <!-- Card header -->
+                    <div class="flex items-center gap-2 mb-2 pb-1.5 border-b border-gray-100 text-xs">
+                      <span class="px-1.5 py-0.5 bg-gray-100 rounded font-medium text-gray-700">
+                        {{ item.gold?.semantic || item.compare?.semantic }}
+                      </span>
+                      <span v-if="item.matchType === 'boundary'" class="text-amber-600 font-medium">Boundary mismatch</span>
+                      <span v-else-if="item.matchType === 'gold_only'" class="text-red-500 font-medium">Missing in {{ currentCompareAnnotator?.name }}</span>
+                      <span v-else class="text-red-500 font-medium">Missing in {{ currentGoldAnnotator?.name }} (Gold)</span>
                     </div>
-                    <div class="grid grid-cols-2 gap-2 text-gray-600">
-                      <div v-if="item.gold">{{ item.gold.fromEnt.semantic }}[{{ item.gold.fromEnt.begin }},{{ item.gold.fromEnt.end }}] → {{ item.gold.toEnt.semantic }}[{{ item.gold.toEnt.begin }},{{ item.gold.toEnt.end }}]</div>
-                      <div v-else class="text-gray-400 italic">—</div>
-                      <div v-if="item.compare">{{ item.compare.fromEnt.semantic }}[{{ item.compare.fromEnt.begin }},{{ item.compare.fromEnt.end }}] → {{ item.compare.toEnt.semantic }}[{{ item.compare.toEnt.begin }},{{ item.compare.toEnt.end }}]</div>
-                      <div v-else class="text-gray-400 italic">—</div>
+                    <!-- Two columns -->
+                    <div class="grid grid-cols-2 gap-3">
+                      <!-- Gold side -->
+                      <div>
+                        <div class="text-[11px] font-medium text-gray-600 mb-1">{{ currentGoldAnnotator?.name }} (Gold)</div>
+                        <template v-if="item.gold">
+                          <div class="text-[11px] text-gray-500 mb-0.5">
+                            <span class="font-semibold text-gray-700">FROM</span> · {{ item.gold.fromEnt.semantic }} · <span class="font-mono">{{ item.gold.fromEnt.begin }}~{{ item.gold.fromEnt.end }}</span> · <strong class="text-gray-800">"{{ item.content.slice(item.gold.fromEnt.begin, item.gold.fromEnt.end) }}"</strong>
+                          </div>
+                          <div class="text-xs bg-gray-50 rounded p-2 leading-5 break-words mb-2">
+                            <span class="text-gray-400">{{ item.content.slice(Math.max(0, item.gold.fromEnt.begin - 80), item.gold.fromEnt.begin) }}</span><mark class="bg-amber-200 rounded-sm px-0.5 text-gray-900 not-italic">{{ item.content.slice(item.gold.fromEnt.begin, item.gold.fromEnt.end) }}</mark><span class="text-gray-400">{{ item.content.slice(item.gold.fromEnt.end, Math.min(item.content.length, item.gold.fromEnt.end + 80)) }}</span>
+                          </div>
+                          <div class="text-[11px] text-gray-500 mb-0.5">
+                            <span class="font-semibold text-gray-700">TO</span> · {{ item.gold.toEnt.semantic }} · <span class="font-mono">{{ item.gold.toEnt.begin }}~{{ item.gold.toEnt.end }}</span> · <strong class="text-gray-800">"{{ item.content.slice(item.gold.toEnt.begin, item.gold.toEnt.end) }}"</strong>
+                          </div>
+                          <div class="text-xs bg-gray-50 rounded p-2 leading-5 break-words">
+                            <span class="text-gray-400">{{ item.content.slice(Math.max(0, item.gold.toEnt.begin - 80), item.gold.toEnt.begin) }}</span><mark class="bg-amber-200 rounded-sm px-0.5 text-gray-900 not-italic">{{ item.content.slice(item.gold.toEnt.begin, item.gold.toEnt.end) }}</mark><span class="text-gray-400">{{ item.content.slice(item.gold.toEnt.end, Math.min(item.content.length, item.gold.toEnt.end + 80)) }}</span>
+                          </div>
+                        </template>
+                        <div v-else class="text-xs text-gray-400 italic bg-gray-50 rounded p-2">Not annotated</div>
+                      </div>
+                      <!-- Compare side -->
+                      <div>
+                        <div class="text-[11px] font-medium text-gray-600 mb-1">{{ currentCompareAnnotator?.name }}</div>
+                        <template v-if="item.compare">
+                          <div class="text-[11px] text-gray-500 mb-0.5">
+                            <span class="font-semibold text-gray-700">FROM</span> · {{ item.compare.fromEnt.semantic }} · <span class="font-mono">{{ item.compare.fromEnt.begin }}~{{ item.compare.fromEnt.end }}</span> · <strong class="text-gray-800">"{{ item.content.slice(item.compare.fromEnt.begin, item.compare.fromEnt.end) }}"</strong>
+                          </div>
+                          <div class="text-xs bg-gray-50 rounded p-2 leading-5 break-words mb-2">
+                            <span class="text-gray-400">{{ item.content.slice(Math.max(0, item.compare.fromEnt.begin - 80), item.compare.fromEnt.begin) }}</span><mark class="bg-cyan-200 rounded-sm px-0.5 text-gray-900 not-italic">{{ item.content.slice(item.compare.fromEnt.begin, item.compare.fromEnt.end) }}</mark><span class="text-gray-400">{{ item.content.slice(item.compare.fromEnt.end, Math.min(item.content.length, item.compare.fromEnt.end + 80)) }}</span>
+                          </div>
+                          <div class="text-[11px] text-gray-500 mb-0.5">
+                            <span class="font-semibold text-gray-700">TO</span> · {{ item.compare.toEnt.semantic }} · <span class="font-mono">{{ item.compare.toEnt.begin }}~{{ item.compare.toEnt.end }}</span> · <strong class="text-gray-800">"{{ item.content.slice(item.compare.toEnt.begin, item.compare.toEnt.end) }}"</strong>
+                          </div>
+                          <div class="text-xs bg-gray-50 rounded p-2 leading-5 break-words">
+                            <span class="text-gray-400">{{ item.content.slice(Math.max(0, item.compare.toEnt.begin - 80), item.compare.toEnt.begin) }}</span><mark class="bg-cyan-200 rounded-sm px-0.5 text-gray-900 not-italic">{{ item.content.slice(item.compare.toEnt.begin, item.compare.toEnt.end) }}</mark><span class="text-gray-400">{{ item.content.slice(item.compare.toEnt.end, Math.min(item.content.length, item.compare.toEnt.end + 80)) }}</span>
+                          </div>
+                        </template>
+                        <div v-else class="text-xs text-gray-400 italic bg-gray-50 rounded p-2">Not annotated</div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -356,7 +394,7 @@ function computeEntityDisagreements(goldEntities, compareEntities, content) {
   return items
 }
 
-function computeRelationDisagreements(goldRelations, compareRelations) {
+function computeRelationDisagreements(goldRelations, compareRelations, content) {
   const items = []
   const pairedCompareIdxs = new Set()
 
@@ -369,9 +407,9 @@ function computeRelationDisagreements(goldRelations, compareRelations) {
     }
     if (pairedCi >= 0) {
       pairedCompareIdxs.add(pairedCi)
-      items.push({ matchType: 'boundary', gold, compare: compareRelations[pairedCi] })
+      items.push({ matchType: 'boundary', gold, compare: compareRelations[pairedCi], content })
     } else {
-      items.push({ matchType: 'gold_only', gold, compare: null })
+      items.push({ matchType: 'gold_only', gold, compare: null, content })
     }
   }
 
@@ -379,7 +417,7 @@ function computeRelationDisagreements(goldRelations, compareRelations) {
     if (pairedCompareIdxs.has(ci)) continue
     const compare = compareRelations[ci]
     if (goldRelations.some((g) => relationStrictMatch(g, compare))) continue
-    items.push({ matchType: 'compare_only', gold: null, compare })
+    items.push({ matchType: 'compare_only', gold: null, compare, content })
   }
   return items
 }
@@ -512,9 +550,11 @@ const currentDocEntityDisagreements = computed(() => {
 })
 
 const currentDocRelationDisagreements = computed(() => {
+  const content = currentGoldDoc.value?.content || currentCompareDoc.value?.content || ''
   return computeRelationDisagreements(
     currentGoldDoc.value?.relations ?? [],
     currentCompareDoc.value?.relations ?? [],
+    content,
   )
 })
 
