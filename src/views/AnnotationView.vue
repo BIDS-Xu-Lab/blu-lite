@@ -23,20 +23,26 @@
       <span>Tokens: {{ annotationStore.tokenCount }}</span>
       <span>Entities: {{ annotationStore.entityCount }}</span>
       <span>Relations: {{ annotationStore.relationCount }}</span>
-      <span class="ml-auto flex items-center gap-1">
-        <template v-if="vocabStore.indexStatus === 'loading'">
-          <font-awesome-icon :icon="['fas', 'spinner']" class="animate-spin text-yellow-500" />
-          Loading Vocabulary ({{ vocabStore.loadProgress.percent }}%)...
-        </template>
-        <template v-else-if="vocabStore.indexStatus === 'ready'">
-          <font-awesome-icon :icon="['fas', 'book-medical']" class="text-green-500" />
-          Vocabulary Ready ({{ vocabStore.indexedDocCount.toLocaleString() }})
-        </template>
-        <template v-else-if="vocabStore.indexStatus === 'error'">
-          <font-awesome-icon :icon="['fas', 'triangle-exclamation']" class="text-red-500" />
-          Vocab Error
-        </template>
-      </span>
+      <div class="ml-auto flex items-center gap-4">
+        <span class="flex items-center gap-1">
+          <template v-if="vocabStore.indexStatus === 'loading'">
+            <font-awesome-icon :icon="['fas', 'spinner']" class="animate-spin text-yellow-500" />
+            Loading Vocabulary ({{ vocabStore.loadProgress.percent }}%)...
+          </template>
+          <template v-else-if="vocabStore.indexStatus === 'ready'">
+            <font-awesome-icon :icon="['fas', 'book-medical']" class="text-green-500" />
+            Vocabulary Ready ({{ vocabStore.indexedDocCount.toLocaleString() }})
+          </template>
+          <template v-else-if="vocabStore.indexStatus === 'error'">
+            <font-awesome-icon :icon="['fas', 'triangle-exclamation']" class="text-red-500" />
+            Vocab Error
+          </template>
+        </span>
+        <span>
+          <font-awesome-icon :icon="['fas', 'code-branch']" />
+          Blu Lite v{{ appVersion }}
+        </span>
+      </div>
     </footer>
   </div>
 </template>
@@ -47,6 +53,7 @@ import AnnotationMenuBar from '../components/annotation/menu/AnnotationMenuBar.v
 import FileListPanel from '../components/annotation/filelist/FileListPanel.vue'
 import EditorPanel from '../components/annotation/editor/EditorPanel.vue'
 import GuidelinePanel from '../components/annotation/editor/GuidelinePanel.vue'
+import { version as appVersion } from '../../package.json'
 import { useFileStore } from '../stores/fileStore.js'
 import { useAnnotationStore } from '../stores/annotationStore.js'
 import { useVocabularyStore } from '../stores/vocabularyStore.js'
