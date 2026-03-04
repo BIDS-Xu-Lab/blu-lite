@@ -26,11 +26,7 @@
       <span class="ml-auto flex items-center gap-1">
         <template v-if="vocabStore.indexStatus === 'loading'">
           <font-awesome-icon :icon="['fas', 'spinner']" class="animate-spin text-yellow-500" />
-          Loading Vocabulary...
-        </template>
-        <template v-else-if="vocabStore.indexStatus === 'indexing'">
-          <font-awesome-icon :icon="['fas', 'spinner']" class="animate-spin text-blue-500" />
-          Indexing Vocabulary...
+          Loading Vocabulary ({{ vocabStore.loadProgress.percent }}%)...
         </template>
         <template v-else-if="vocabStore.indexStatus === 'ready'">
           <font-awesome-icon :icon="['fas', 'book-medical']" class="text-green-500" />
@@ -69,7 +65,7 @@ const charCount = computed(() => {
 })
 
 onMounted(() => {
-  vocabStore.initVocabularies().catch(console.error)
+  vocabStore.initVocabulary().catch(console.error)
 })
 </script>
 

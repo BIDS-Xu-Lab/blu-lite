@@ -72,7 +72,7 @@
       </div>
       <div
         v-for="result in results"
-        :key="result.uid"
+        :key="result.concept_id"
         class="px-3 py-2 border-b border-gray-50 hover:bg-gray-50 flex items-start justify-between gap-2"
       >
         <div class="min-w-0 flex-1">
@@ -81,7 +81,6 @@
             <span class="text-[10px] text-gray-400 uppercase bg-gray-100 px-1 rounded">{{ result.vocabulary }}</span>
           </div>
           <div class="text-xs text-gray-600 truncate" :title="result.terms">{{ primaryName(result.terms) }}</div>
-          <div v-if="result.description" class="text-xs text-gray-400 truncate" :title="result.description">{{ result.description }}</div>
         </div>
         <button
           v-if="isSelected(result)"

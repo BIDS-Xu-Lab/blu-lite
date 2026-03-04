@@ -1,386 +1,268 @@
-import { ref, computed } from 'vue'
+import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import { openDB } from 'idb'
-import JSZip from 'jszip'
 
-const DB_NAME = 'blu-vocab'
-const DB_VERSION = 1
-const RECORDS_STORE = 'records'
-const METADATA_STORE = 'metadata'
-const CHUNK_SIZE = 5000
-const LS_INCLUDED_KEY = 'blu-vocab-included'
-const DEFAULT_INCLUDED = ['ICD10CM', 'LNC']
-
-async function getDB() {
-  return openDB(DB_NAME, DB_VERSION, {
-    upgrade(db) {
-      if (!db.objectStoreNames.contains(RECORDS_STORE)) {
-        const store = db.createObjectStore(RECORDS_STORE, { keyPath: ['vocabulary', 'concept_id'] })
-        store.createIndex('by-vocabulary', 'vocabulary')
-      }
-      if (!db.objectStoreNames.contains(METADATA_STORE)) {
-        db.createObjectStore(METADATA_STORE, { keyPath: 'name' })
-      }
-    },
-  })
-}
-
-function parseTSV(text) {
-  const lines = text.split('\n')
-  if (lines.length === 0) return []
-
-  // Find header
-  const header = lines[0].split('\t').map(h => h.trim())
-  const idIdx = header.indexOf('concept_id')
-  const termsIdx = header.indexOf('terms')
-  const descIdx = header.indexOf('description')
-
-  if (idIdx < 0 || termsIdx < 0 || descIdx < 0) {
-    throw new Error('TSV must have columns: concept_id, terms, description')
-  }
-
-  const records = []
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i].trim()
-    if (!line) continue
-    const cols = line.split('\t')
-    records.push({
-      concept_id: cols[idIdx] || '',
-      terms: cols[termsIdx] || '',
-      description: cols[descIdx] || '',
-    })
-  }
-  return records
-}
+const LS_USER_SOURCES_KEY = 'blu-vocab-user-sources-v2'
+const LS_SELECTED_SOURCE_KEY = 'blu-vocab-selected-source-v2'
+const DEFAULT_SOURCE_ID = 'default-icd10cm'
 
 export const useVocabularyStore = defineStore('vocabulary', () => {
-  const vocabCollections = ref([])
+  const base = import.meta.env.BASE_URL || '/'
+  const defaultSource = {
+    id: DEFAULT_SOURCE_ID,
+    name: 'ICD10CM',
+    type: 'default',
+    opfsName: 'ICD10CM.db',
+    url: `${base}data/vocab/ICD10CM.db`,
+    locked: true,
+  }
+
+  const userSources = ref([])
+  const selectedSourceId = ref(DEFAULT_SOURCE_ID)
+  const sourceCache = ref({})
+
   const indexStatus = ref('idle')
   const indexError = ref(null)
-  const totalCachedRecords = ref(0)
   const searchReady = ref(false)
   const indexedDocCount = ref(0)
+  const loadProgress = ref({ phase: 'idle', percent: 0 })
+  const isClearingCache = ref(false)
+  const isManagingSources = ref(false)
+
+  const indexName = computed(() => currentSource.value?.name || defaultSource.name)
+  const sources = computed(() => [
+    defaultSource,
+    ...userSources.value,
+  ].map((source) => {
+    const cache = sourceCache.value[source.id] || { cached: false, size: 0 }
+    return {
+      ...source,
+      cached: cache.cached,
+      size: cache.size,
+    }
+  }))
+  const currentSource = computed(() =>
+    sources.value.find((source) => source.id === selectedSourceId.value) || defaultSource,
+  )
 
   let worker = null
+  let initPromise = null
   let searchRequestId = 0
   const pendingSearches = new Map()
-  let caching = false
+  let opRequestId = 0
+  const pendingOps = new Map()
+  let selectedLoadedSourceId = null
 
-  // Load included config from localStorage
-  function loadIncludedConfig() {
+  function normalizeFileName(fileName) {
+    const safe = fileName
+      .replace(/[^a-zA-Z0-9._-]+/g, '_')
+      .replace(/^_+|_+$/g, '')
+    return safe || `vocab_${Date.now()}.db`
+  }
+
+  function ensureDbExtension(name) {
+    return name.toLowerCase().endsWith('.db') ? name : `${name}.db`
+  }
+
+  function getDefaultSource() {
+    return { ...defaultSource }
+  }
+
+  function loadPersistedSources() {
     try {
-      const stored = localStorage.getItem(LS_INCLUDED_KEY)
-      return stored ? JSON.parse(stored) : [...DEFAULT_INCLUDED]
+      const parsed = JSON.parse(localStorage.getItem(LS_USER_SOURCES_KEY) || '[]')
+      userSources.value = Array.isArray(parsed)
+        ? parsed.filter((item) => item && item.id && item.name && item.opfsName)
+        : []
     } catch {
-      return [...DEFAULT_INCLUDED]
+      userSources.value = []
+    }
+
+    const persistedSelected = localStorage.getItem(LS_SELECTED_SOURCE_KEY)
+    if (persistedSelected) {
+      selectedSourceId.value = persistedSelected
+    }
+
+    if (!sources.value.some((item) => item.id === selectedSourceId.value)) {
+      selectedSourceId.value = DEFAULT_SOURCE_ID
     }
   }
 
-  function saveIncludedConfig(included) {
-    localStorage.setItem(LS_INCLUDED_KEY, JSON.stringify(included))
+  function persistSources() {
+    localStorage.setItem(LS_USER_SOURCES_KEY, JSON.stringify(userSources.value))
+    localStorage.setItem(LS_SELECTED_SOURCE_KEY, selectedSourceId.value)
   }
 
-  const systemVocabs = computed(() =>
-    vocabCollections.value.filter(v => v.type === 'system'),
-  )
-
-  const userVocabs = computed(() =>
-    vocabCollections.value.filter(v => v.type === 'user'),
-  )
-
-  const includedVocabs = computed(() =>
-    vocabCollections.value.filter(v => v.included),
-  )
-
-  async function initVocabularies() {
-    const db = await getDB()
-    const allMeta = await db.getAll(METADATA_STORE)
-    const metaMap = new Map(allMeta.map(m => [m.name, m]))
-
-    const included = loadIncludedConfig()
-
-    // System vocabs from build-time scanning
-    const systemNames = typeof __VOCAB_FILES__ !== 'undefined' ? __VOCAB_FILES__ : []
-    const collections = []
-
-    for (const name of systemNames) {
-      const meta = metaMap.get(name)
-      collections.push({
-        name,
-        type: 'system',
-        recordCount: meta?.recordCount ?? 0,
-        cached: !!meta,
-        included: included.includes(name),
-      })
+  async function getOpfsRoot() {
+    if (!navigator?.storage?.getDirectory) {
+      throw new Error('OPFS is not available in this browser context.')
     }
-
-    // User vocabs from metadata
-    for (const meta of allMeta) {
-      if (meta.type === 'user') {
-        collections.push({
-          name: meta.name,
-          type: 'user',
-          recordCount: meta.recordCount ?? 0,
-          cached: true,
-          included: included.includes(meta.name),
-        })
-      }
-    }
-
-    vocabCollections.value = collections
-    updateTotalCached()
-
-    // Cache any uncached system vocabs that are included
-    await cacheUncachedIncluded()
-
-    // Build search index
-    await buildSearchIndex()
+    return navigator.storage.getDirectory()
   }
 
-  async function cacheUncachedIncluded() {
-    const uncached = vocabCollections.value.filter(
-      v => v.type === 'system' && !v.cached && v.included,
-    )
-    for (const vocab of uncached) {
-      await cacheVocabulary(vocab.name)
-    }
-  }
-
-  async function cacheVocabulary(name) {
-    if (caching) return
-    caching = true
-    const prevStatus = indexStatus.value
-    indexStatus.value = 'loading'
-
+  async function getOpfsFileSize(opfsName) {
+    const root = await getOpfsRoot()
     try {
-      const base = import.meta.env.BASE_URL || '/'
-      const url = `${base}data/vocab/${name}.tsv.zip`
-      const response = await fetch(url)
-      if (!response.ok) throw new Error(`Failed to fetch ${url}: ${response.status}`)
+      const handle = await root.getFileHandle(opfsName)
+      const file = await handle.getFile()
+      return file.size
+    } catch {
+      return 0
+    }
+  }
 
-      const arrayBuffer = await response.arrayBuffer()
-      const zip = await JSZip.loadAsync(arrayBuffer)
-
-      // Find the TSV file inside
-      const tsvFileName = Object.keys(zip.files).find(f => f.endsWith('.tsv'))
-      if (!tsvFileName) throw new Error(`No .tsv file found in ${name}.tsv.zip`)
-
-      const tsvText = await zip.file(tsvFileName).async('string')
-      const records = parseTSV(tsvText)
-
-      // Bulk insert into IndexedDB in chunks
-      const db = await getDB()
-      for (let i = 0; i < records.length; i += CHUNK_SIZE) {
-        const chunk = records.slice(i, i + CHUNK_SIZE)
-        const tx = db.transaction(RECORDS_STORE, 'readwrite')
-        for (const rec of chunk) {
-          tx.store.put({ vocabulary: name, ...rec })
-        }
-        await tx.done
-      }
-
-      // Save metadata
-      await db.put(METADATA_STORE, {
-        name,
-        type: 'system',
-        recordCount: records.length,
-        cachedAt: new Date().toISOString(),
-      })
-
-      // Update collection state
-      const col = vocabCollections.value.find(v => v.name === name)
-      if (col) {
-        col.cached = true
-        col.recordCount = records.length
-      }
-
-      updateTotalCached()
+  async function writeFileToOpfs(opfsName, bytes) {
+    const root = await getOpfsRoot()
+    const handle = await root.getFileHandle(opfsName, { create: true })
+    const writable = await handle.createWritable()
+    try {
+      await writable.write(bytes)
+      await writable.close()
     } catch (err) {
-      console.error(`Failed to cache vocabulary ${name}:`, err)
-      indexError.value = err.message
-    } finally {
-      caching = false
-      if (indexStatus.value === 'loading') {
-        indexStatus.value = prevStatus
-      }
+      await writable.abort()
+      throw err
     }
   }
 
-  async function addUserVocabulary(file) {
-    const name = file.name.replace(/\.tsv$/i, '')
-
-    // Check for duplicate
-    if (vocabCollections.value.some(v => v.name === name)) {
-      throw new Error(`Vocabulary "${name}" already exists`)
+  async function refreshCacheStatus() {
+    const updated = {}
+    for (const source of sources.value) {
+      const size = await getOpfsFileSize(source.opfsName)
+      updated[source.id] = { cached: size > 0, size }
     }
-
-    const text = await file.text()
-    const records = parseTSV(text)
-
-    const db = await getDB()
-    for (let i = 0; i < records.length; i += CHUNK_SIZE) {
-      const chunk = records.slice(i, i + CHUNK_SIZE)
-      const tx = db.transaction(RECORDS_STORE, 'readwrite')
-      for (const rec of chunk) {
-        tx.store.put({ vocabulary: name, ...rec })
-      }
-      await tx.done
-    }
-
-    await db.put(METADATA_STORE, {
-      name,
-      type: 'user',
-      recordCount: records.length,
-      cachedAt: new Date().toISOString(),
-    })
-
-    vocabCollections.value.push({
-      name,
-      type: 'user',
-      recordCount: records.length,
-      cached: true,
-      included: true,
-    })
-
-    // Add to included config
-    const included = loadIncludedConfig()
-    if (!included.includes(name)) {
-      included.push(name)
-      saveIncludedConfig(included)
-    }
-
-    updateTotalCached()
+    sourceCache.value = updated
   }
 
-  async function clearCache(name) {
-    const db = await getDB()
-
-    // Delete all records for this vocabulary
-    const tx = db.transaction(RECORDS_STORE, 'readwrite')
-    const index = tx.store.index('by-vocabulary')
-    let cursor = await index.openCursor(IDBKeyRange.only(name))
-    while (cursor) {
-      await cursor.delete()
-      cursor = await cursor.continue()
-    }
-    await tx.done
-
-    // Delete metadata
-    await db.delete(METADATA_STORE, name)
-
-    const col = vocabCollections.value.find(v => v.name === name)
-    if (col) {
-      col.cached = false
-      col.recordCount = 0
-    }
-
-    updateTotalCached()
-  }
-
-  async function removeUserVocabulary(name) {
-    await clearCache(name)
-    vocabCollections.value = vocabCollections.value.filter(v => v.name !== name)
-
-    // Remove from included config
-    const included = loadIncludedConfig()
-    saveIncludedConfig(included.filter(n => n !== name))
-  }
-
-  function toggleIncluded(name) {
-    const col = vocabCollections.value.find(v => v.name === name)
-    if (!col) return
-    col.included = !col.included
-
-    const included = vocabCollections.value.filter(v => v.included).map(v => v.name)
-    saveIncludedConfig(included)
-  }
-
-  function updateTotalCached() {
-    totalCachedRecords.value = vocabCollections.value.reduce(
-      (sum, v) => sum + (v.cached ? v.recordCount : 0),
-      0,
-    )
-  }
-
-  // Worker management
   function createWorker() {
-    if (worker) {
-      worker.terminate()
-    }
+    if (worker) return worker
+
     worker = new Worker(
-      new URL('../workers/vocabIndexWorker.js', import.meta.url),
+      new URL('../workers/sqliteVocabWorker.js', import.meta.url),
       { type: 'module' },
     )
-    worker.onmessage = handleWorkerMessage
-    worker.onerror = (err) => {
-      console.error('Vocab worker error:', err)
-      indexStatus.value = 'error'
-      indexError.value = err.message || 'Worker error'
-      searchReady.value = false
-    }
-  }
 
-  function handleWorkerMessage(event) {
-    const { type } = event.data
+    worker.onmessage = (event) => {
+      const { type } = event.data || {}
 
-    if (type === 'index-progress') {
-      // Could track progress if needed
-    } else if (type === 'index-ready') {
-      indexStatus.value = 'ready'
-      searchReady.value = true
-      indexedDocCount.value = event.data.totalDocuments
-      indexError.value = null
-    } else if (type === 'index-error') {
-      indexStatus.value = 'error'
-      indexError.value = event.data.error
-      searchReady.value = false
-    } else if (type === 'search-result') {
-      const { id, results, totalCount } = event.data
-      const resolve = pendingSearches.get(id)
-      if (resolve) {
-        pendingSearches.delete(id)
-        resolve({ results, totalCount })
+      if (type === 'init-progress') {
+        loadProgress.value = {
+          phase: event.data.phase || 'loading',
+          percent: Number(event.data.percent || 0),
+        }
+      } else if (type === 'init-ready') {
+        indexedDocCount.value = Number(event.data.recordCount || 0)
+        indexStatus.value = 'ready'
+        indexError.value = null
+        searchReady.value = true
+        loadProgress.value = { phase: 'ready', percent: 100 }
+      } else if (type === 'init-error') {
+        indexStatus.value = 'error'
+        indexError.value = event.data.error || 'Vocabulary initialization failed'
+        searchReady.value = false
+      } else if (type === 'search-result') {
+        const { id, results, totalCount } = event.data
+        const resolve = pendingSearches.get(id)
+        if (resolve) {
+          pendingSearches.delete(id)
+          resolve({ results: results || [], totalCount: Number(totalCount || 0) })
+        }
+      } else if (type === 'cache-cleared' || type === 'cache-clear-error') {
+        const { id, error } = event.data
+        const handlers = pendingOps.get(id)
+        if (handlers) {
+          pendingOps.delete(id)
+          if (type === 'cache-cleared') {
+            handlers.resolve()
+          } else {
+            handlers.reject(new Error(error || 'Failed to clear vocabulary cache'))
+          }
+        }
       }
     }
+
+    worker.onerror = (err) => {
+      indexStatus.value = 'error'
+      indexError.value = err.message || 'Vocabulary worker error'
+      searchReady.value = false
+    }
+
+    return worker
   }
 
-  async function buildSearchIndex() {
-    const included = vocabCollections.value
-      .filter(v => v.included && v.cached)
-      .map(v => v.name)
+  async function initVocabulary(sourceId = selectedSourceId.value) {
+    if (!sources.value.length) {
+      loadPersistedSources()
+      await refreshCacheStatus()
+    }
 
-    if (included.length === 0) {
-      indexStatus.value = 'idle'
-      searchReady.value = false
+    if (sourceId && selectedSourceId.value !== sourceId) {
+      selectedSourceId.value = sourceId
+      persistSources()
+    }
+
+    const source = currentSource.value || getDefaultSource()
+
+    if (
+      searchReady.value
+      && indexStatus.value === 'ready'
+      && selectedLoadedSourceId === source.id
+    ) {
       return
     }
 
-    indexStatus.value = 'indexing'
-    searchReady.value = false
+    if (initPromise) return initPromise
 
-    createWorker()
-    worker.postMessage({ type: 'build-index', includedVocabs: included })
+    indexStatus.value = 'loading'
+    indexError.value = null
+    loadProgress.value = { phase: 'loading', percent: 0 }
+
+    const activeWorker = createWorker()
+
+    initPromise = new Promise((resolve, reject) => {
+      const onMessage = (event) => {
+        const { type } = event.data || {}
+        if (type === 'init-ready') {
+          activeWorker.removeEventListener('message', onMessage)
+          selectedLoadedSourceId = source.id
+          initPromise = null
+          refreshCacheStatus().catch(() => {})
+          resolve()
+        } else if (type === 'init-error') {
+          activeWorker.removeEventListener('message', onMessage)
+          initPromise = null
+          reject(new Error(event.data.error || 'Vocabulary initialization failed'))
+        }
+      }
+
+      activeWorker.addEventListener('message', onMessage)
+      activeWorker.postMessage({
+        type: 'init',
+        dbUrl: source.url || null,
+        opfsName: source.opfsName,
+        vocabulary: source.name,
+      })
+    })
+
+    return initPromise
   }
 
   function search(query, options = {}) {
-    if (!worker || !searchReady.value) {
+    if (!worker || !searchReady.value || !query?.trim()) {
       return Promise.resolve({ results: [], totalCount: 0 })
     }
 
     const id = ++searchRequestId
+    const offset = Number(options.offset || 0)
+    const limit = Number(options.limit || 20)
+
     return new Promise((resolve) => {
       pendingSearches.set(id, resolve)
       worker.postMessage({
         type: 'search',
         id,
         query,
-        options: {
-          offset: options.offset || 0,
-          limit: options.limit || 20,
-        },
+        options: { offset, limit },
       })
 
-      // Timeout after 10s
       setTimeout(() => {
         if (pendingSearches.has(id)) {
           pendingSearches.delete(id)
@@ -390,23 +272,159 @@ export const useVocabularyStore = defineStore('vocabulary', () => {
     })
   }
 
+  function createOpRequest(opfsName) {
+    const activeWorker = createWorker()
+    const id = ++opRequestId
+
+    return new Promise((resolve, reject) => {
+      pendingOps.set(id, { resolve, reject })
+      activeWorker.postMessage({ type: 'clear-cache', id, opfsName })
+    })
+  }
+
+  async function clearVocabularyCache() {
+    const source = currentSource.value
+    if (!source) return
+
+    isClearingCache.value = true
+    try {
+      await createOpRequest(source.opfsName)
+
+      searchReady.value = false
+      indexStatus.value = 'idle'
+      indexError.value = null
+      indexedDocCount.value = 0
+      loadProgress.value = { phase: 'idle', percent: 0 }
+      selectedLoadedSourceId = null
+      initPromise = null
+      await refreshCacheStatus()
+    } finally {
+      isClearingCache.value = false
+    }
+  }
+
+  async function setSelectedSource(sourceId, autoLoad = true) {
+    if (!sources.value.some((item) => item.id === sourceId)) {
+      throw new Error('Unknown vocabulary source.')
+    }
+
+    selectedSourceId.value = sourceId
+    persistSources()
+
+    if (autoLoad) {
+      await initVocabulary(sourceId)
+    }
+  }
+
+  async function addUrlSource({ url, name }) {
+    const parsed = new URL(url)
+    const rawFileName = parsed.pathname.split('/').pop() || `vocab_${Date.now()}.db`
+    const opfsBaseName = ensureDbExtension(normalizeFileName(rawFileName))
+
+    const existingNames = new Set(sources.value.map((item) => item.opfsName))
+    let candidate = opfsBaseName
+    let n = 1
+    while (existingNames.has(candidate)) {
+      candidate = opfsBaseName.replace(/\.db$/i, `_${n}.db`)
+      n += 1
+    }
+
+    const source = {
+      id: `user-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      name: (name || opfsBaseName.replace(/\.db$/i, '')).trim(),
+      type: 'url',
+      opfsName: candidate,
+      url: parsed.toString(),
+      locked: false,
+    }
+
+    userSources.value.push(source)
+    selectedSourceId.value = source.id
+    persistSources()
+    await refreshCacheStatus()
+    await initVocabulary(source.id)
+  }
+
+  async function addLocalSource(file, displayName = '') {
+    if (!file) {
+      throw new Error('No file selected.')
+    }
+
+    const sourceName = (displayName || file.name.replace(/\.db$/i, '') || 'Local Vocabulary').trim()
+    const opfsBaseName = ensureDbExtension(normalizeFileName(file.name || `${sourceName}.db`))
+
+    const existingNames = new Set(sources.value.map((item) => item.opfsName))
+    let candidate = opfsBaseName
+    let n = 1
+    while (existingNames.has(candidate)) {
+      candidate = opfsBaseName.replace(/\.db$/i, `_${n}.db`)
+      n += 1
+    }
+
+    const bytes = await file.arrayBuffer()
+    await writeFileToOpfs(candidate, bytes)
+
+    const source = {
+      id: `user-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      name: sourceName,
+      type: 'local',
+      opfsName: candidate,
+      url: null,
+      locked: false,
+    }
+
+    userSources.value.push(source)
+    selectedSourceId.value = source.id
+    persistSources()
+    await refreshCacheStatus()
+    await initVocabulary(source.id)
+  }
+
+  async function removeSource(sourceId) {
+    const source = sources.value.find((item) => item.id === sourceId)
+    if (!source || source.locked) return
+
+    isManagingSources.value = true
+    try {
+      await createOpRequest(source.opfsName)
+
+      userSources.value = userSources.value.filter((item) => item.id !== sourceId)
+      if (selectedSourceId.value === sourceId) {
+        selectedSourceId.value = DEFAULT_SOURCE_ID
+        selectedLoadedSourceId = null
+      }
+      persistSources()
+      await refreshCacheStatus()
+
+      if (selectedSourceId.value === DEFAULT_SOURCE_ID) {
+        await initVocabulary(DEFAULT_SOURCE_ID)
+      }
+    } finally {
+      isManagingSources.value = false
+    }
+  }
+
+  loadPersistedSources()
+  refreshCacheStatus().catch(() => {})
+
   return {
-    vocabCollections,
+    indexName,
     indexStatus,
     indexError,
-    totalCachedRecords,
     searchReady,
     indexedDocCount,
-    systemVocabs,
-    userVocabs,
-    includedVocabs,
-    initVocabularies,
-    cacheVocabulary,
-    addUserVocabulary,
-    clearCache,
-    removeUserVocabulary,
-    toggleIncluded,
-    buildSearchIndex,
+    loadProgress,
+    isClearingCache,
+    isManagingSources,
+    sources,
+    selectedSourceId,
+    currentSource,
+    initVocabulary,
+    clearVocabularyCache,
+    setSelectedSource,
+    addUrlSource,
+    addLocalSource,
+    removeSource,
     search,
   }
 })

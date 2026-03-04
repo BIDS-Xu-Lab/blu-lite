@@ -1,5 +1,5 @@
 <template>
-  <Drawer v-model:visible="visible" position="left" header="Settings" :style="{ width: '400px' }">
+  <Drawer v-model:visible="visible" position="left" header="Settings" :style="{ width: '460px' }">
     <Tabs value="general">
       <TabList>
         <Tab value="general">General</Tab>
@@ -64,120 +64,131 @@
 
         <TabPanel value="vocabulary">
           <div class="flex flex-col gap-4 pt-3">
-            <!-- Summary -->
-            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <div class="text-sm text-gray-600">
-                <div class="font-medium">{{ vocabStore.vocabCollections.length }} collections</div>
-                <div class="text-xs text-gray-400">{{ vocabStore.totalCachedRecords.toLocaleString() }} cached records</div>
+            <div class="p-4 rounded-lg border border-gray-200 bg-gray-50">
+              <div class="flex items-start justify-between gap-3">
+                <div>
+                  <div class="text-sm font-semibold text-gray-800">Current Source: {{ vocabStore.indexName }}</div>
+                  <div class="text-xs text-gray-500 mt-0.5">Vocabulary DBs are cached in OPFS and reused across sessions.</div>
+                </div>
+                <span
+                  v-if="vocabStore.indexStatus === 'ready'"
+                  class="text-xs text-green-700 bg-green-100 px-2 py-1 rounded-md"
+                >
+                  Ready
+                </span>
+                <span
+                  v-else-if="vocabStore.indexStatus === 'loading'"
+                  class="text-xs text-yellow-700 bg-yellow-100 px-2 py-1 rounded-md"
+                >
+                  Loading {{ vocabStore.loadProgress.percent }}%
+                </span>
+                <span
+                  v-else-if="vocabStore.indexStatus === 'error'"
+                  class="text-xs text-red-700 bg-red-100 px-2 py-1 rounded-md"
+                >
+                  Error
+                </span>
+                <span
+                  v-else
+                  class="text-xs text-gray-700 bg-gray-100 px-2 py-1 rounded-md"
+                >
+                  Idle
+                </span>
               </div>
-              <div class="flex items-center gap-2">
-                <span v-if="vocabStore.indexStatus === 'ready'" class="text-xs text-green-600 flex items-center gap-1">
-                  <font-awesome-icon :icon="['fas', 'circle-check']" />
-                  Index Ready ({{ vocabStore.indexedDocCount.toLocaleString() }})
-                </span>
-                <span v-else-if="vocabStore.indexStatus === 'indexing'" class="text-xs text-blue-600 flex items-center gap-1">
-                  <font-awesome-icon :icon="['fas', 'spinner']" class="animate-spin" />
-                  Indexing...
-                </span>
-                <span v-else-if="vocabStore.indexStatus === 'loading'" class="text-xs text-yellow-600 flex items-center gap-1">
-                  <font-awesome-icon :icon="['fas', 'spinner']" class="animate-spin" />
-                  Loading...
-                </span>
+
+              <div class="mt-3 text-xs text-gray-600">
+                <div v-if="vocabStore.indexStatus === 'ready'">
+                  Records: {{ vocabStore.indexedDocCount.toLocaleString() }}
+                </div>
+                <div v-else-if="vocabStore.indexStatus === 'error'" class="text-red-600">
+                  {{ vocabStore.indexError || 'Vocabulary initialization failed.' }}
+                </div>
+                <div v-else>
+                  Records: --
+                </div>
               </div>
             </div>
 
-            <!-- System Vocabularies -->
-            <div>
-              <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">System Vocabularies</div>
-              <div class="space-y-2">
-                <div
-                  v-for="vocab in vocabStore.systemVocabs"
-                  :key="vocab.name"
-                  class="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg"
+            <div class="flex flex-col gap-1.5">
+              <label class="text-sm font-medium text-gray-700">Active Vocabulary Source</label>
+              <Select
+                :model-value="vocabStore.selectedSourceId"
+                :options="sourceOptions"
+                option-label="label"
+                option-value="value"
+                class="w-full"
+                :disabled="vocabStore.indexStatus === 'loading' || vocabStore.isManagingSources"
+                @update:model-value="onSelectSource"
+              />
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+              <button
+                class="text-xs px-3 py-2 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                :disabled="vocabStore.indexStatus === 'loading' || vocabStore.isClearingCache"
+                @click="reloadCurrentSource"
+              >
+                {{ vocabStore.isClearingCache ? 'Reloading...' : 'Reload Current Source' }}
+              </button>
+              <button
+                class="text-xs px-3 py-2 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                :disabled="vocabStore.indexStatus === 'loading' || vocabStore.isManagingSources"
+                @click="importLocalDb"
+              >
+                Import Local DB
+              </button>
+              <input ref="fileInputRef" type="file" accept=".db" class="hidden" @change="onFileInputChange" />
+            </div>
+
+            <div class="p-3 rounded-md border border-gray-200 bg-white">
+              <div class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Add From URL</div>
+              <div class="flex flex-col gap-2">
+                <InputText
+                  v-model="urlDisplayName"
+                  class="w-full"
+                  placeholder="Display name (optional)"
+                />
+                <InputText
+                  v-model="urlValue"
+                  class="w-full"
+                  placeholder="https://example.com/vocab.db"
+                />
+                <button
+                  class="text-xs px-3 py-2 rounded-md bg-yale-500 text-white hover:bg-yale-600 disabled:opacity-50"
+                  :disabled="!urlValue.trim() || addingUrl || vocabStore.indexStatus === 'loading'"
+                  @click="addFromUrl"
                 >
-                  <div>
-                    <div class="text-sm font-medium text-gray-700">{{ vocab.name }}</div>
-                    <div class="text-xs text-gray-400">
-                      {{ vocab.cached ? vocab.recordCount.toLocaleString() + ' records' : 'Not cached' }}
+                  {{ addingUrl ? 'Adding...' : 'Add URL Source & Load' }}
+                </button>
+              </div>
+            </div>
+
+            <div class="p-3 rounded-md border border-gray-200 bg-white">
+              <div class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Cached Sources</div>
+              <div class="flex flex-col gap-2 max-h-56 overflow-y-auto">
+                <div
+                  v-for="source in vocabStore.sources"
+                  :key="source.id"
+                  class="flex items-center justify-between gap-2 text-xs border border-gray-100 rounded-md p-2"
+                >
+                  <div class="min-w-0">
+                    <div class="font-medium text-gray-700 truncate">{{ source.name }}</div>
+                    <div class="text-gray-500 truncate">
+                      {{ source.opfsName }} · {{ source.cached ? 'cached' : 'not cached' }}
                     </div>
                   </div>
-                  <div class="flex items-center gap-2">
-                    <template v-if="vocab.cached">
-                      <button
-                        class="text-xs px-2 py-1 rounded border"
-                        :class="vocab.included
-                          ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'
-                          : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'"
-                        @click="toggleVocabIncluded(vocab)"
-                      >
-                        {{ vocab.included ? 'Included' : 'Not Included' }}
-                      </button>
-                      <button
-                        class="text-xs px-2 py-1 rounded border border-red-200 text-red-500 hover:bg-red-50"
-                        @click="clearVocabCache(vocab)"
-                      >
-                        Clear
-                      </button>
-                    </template>
-                    <button
-                      v-else
-                      class="text-xs px-2 py-1 bg-yale-500 text-white rounded hover:bg-yale-600"
-                      :disabled="vocabStore.indexStatus === 'loading'"
-                      @click="loadVocab(vocab)"
-                    >
-                      Load
-                    </button>
-                  </div>
-                </div>
-                <div v-if="vocabStore.systemVocabs.length === 0" class="text-xs text-gray-400 py-2">
-                  No system vocabularies found
-                </div>
-              </div>
-            </div>
-
-            <!-- User Vocabularies -->
-            <div>
-              <div class="flex items-center justify-between mb-2">
-                <span class="text-xs font-semibold text-gray-500 uppercase tracking-wider">User Vocabularies</span>
-                <label class="text-xs text-yale-500 hover:text-yale-600 cursor-pointer flex items-center gap-1">
-                  <font-awesome-icon :icon="['fas', 'upload']" class="text-[10px]" />
-                  Upload TSV
-                  <input type="file" accept=".tsv" class="hidden" @change="uploadVocab" />
-                </label>
-              </div>
-              <div class="space-y-2">
-                <div
-                  v-for="vocab in vocabStore.userVocabs"
-                  :key="vocab.name"
-                  class="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg"
-                >
-                  <div>
-                    <div class="text-sm font-medium text-gray-700">{{ vocab.name }}</div>
-                    <div class="text-xs text-gray-400">{{ vocab.recordCount.toLocaleString() }} records</div>
-                  </div>
                   <button
-                    class="text-xs px-2 py-1 rounded border border-red-200 text-red-500 hover:bg-red-50"
-                    @click="removeUserVocab(vocab)"
+                    v-if="!source.locked"
+                    class="px-2 py-1 rounded border border-red-200 text-red-700 hover:bg-red-50 disabled:opacity-50"
+                    :disabled="vocabStore.isManagingSources || vocabStore.indexStatus === 'loading'"
+                    @click="removeSource(source.id)"
                   >
-                    Remove
+                    Delete
                   </button>
-                </div>
-                <div v-if="vocabStore.userVocabs.length === 0" class="text-xs text-gray-400 py-2">
-                  No custom vocabularies uploaded
+                  <span v-else class="text-[11px] text-gray-400">Default</span>
                 </div>
               </div>
             </div>
-
-            <!-- Rebuild Index -->
-            <button
-              class="w-full text-sm px-3 py-2 bg-yale-500 text-white rounded-lg hover:bg-yale-600 disabled:opacity-50 flex items-center justify-center gap-2"
-              :disabled="vocabStore.indexStatus === 'indexing' || vocabStore.indexStatus === 'loading'"
-              @click="rebuildIndex"
-            >
-              <font-awesome-icon v-if="vocabStore.indexStatus === 'indexing'" :icon="['fas', 'spinner']" class="animate-spin" />
-              <font-awesome-icon v-else :icon="['fas', 'arrows-rotate']" />
-              Rebuild Index
-            </button>
           </div>
         </TabPanel>
       </TabPanels>
@@ -186,6 +197,7 @@
 </template>
 
 <script setup>
+import { computed, ref } from 'vue'
 import Drawer from 'primevue/drawer'
 import Tabs from 'primevue/tabs'
 import TabList from 'primevue/tablist'
@@ -202,39 +214,105 @@ const visible = defineModel('visible', { type: Boolean, default: false })
 const settings = useSettingsStore()
 const vocabStore = useVocabularyStore()
 
+const fileInputRef = ref(null)
+const addingUrl = ref(false)
+const urlDisplayName = ref('')
+const urlValue = ref('')
+
 const openAITypeOptions = [
   { label: 'OpenAI.com', value: 'openai' },
   { label: 'Azure', value: 'azure' },
 ]
 
-function toggleVocabIncluded(vocab) {
-  vocabStore.toggleIncluded(vocab.name)
-}
+const sourceOptions = computed(() =>
+  vocabStore.sources.map((source) => ({
+    value: source.id,
+    label: `${source.name}${source.cached ? '' : ' (not cached)'}`,
+  })),
+)
 
-async function clearVocabCache(vocab) {
-  await vocabStore.clearCache(vocab.name)
-}
-
-async function loadVocab(vocab) {
-  await vocabStore.cacheVocabulary(vocab.name)
-}
-
-async function uploadVocab(event) {
-  const file = event.target.files?.[0]
-  if (!file) return
+async function onSelectSource(sourceId) {
+  if (!sourceId) return
   try {
-    await vocabStore.addUserVocabulary(file)
+    await vocabStore.setSelectedSource(sourceId, true)
   } catch (err) {
-    alert(err.message)
+    console.error(err)
   }
+}
+
+async function reloadCurrentSource() {
+  try {
+    await vocabStore.clearVocabularyCache()
+    await vocabStore.initVocabulary()
+  } catch (err) {
+    console.error(err)
+  }
+}
+
+async function addFromUrl() {
+  if (!urlValue.value.trim()) return
+  addingUrl.value = true
+  try {
+    await vocabStore.addUrlSource({
+      url: urlValue.value.trim(),
+      name: urlDisplayName.value.trim(),
+    })
+    urlDisplayName.value = ''
+    urlValue.value = ''
+  } catch (err) {
+    console.error(err)
+    alert(err.message)
+  } finally {
+    addingUrl.value = false
+  }
+}
+
+async function importLocalDb() {
+  try {
+    if (window.showOpenFilePicker) {
+      const [handle] = await window.showOpenFilePicker({
+        multiple: false,
+        types: [{
+          description: 'SQLite DB',
+          accept: {
+            'application/octet-stream': ['.db'],
+            'application/x-sqlite3': ['.db'],
+          },
+        }],
+      })
+      const file = await handle.getFile()
+      await vocabStore.addLocalSource(file)
+      return
+    }
+
+    fileInputRef.value?.click()
+  } catch (err) {
+    if (err?.name !== 'AbortError') {
+      console.error(err)
+      alert(err.message || 'Failed to import local DB.')
+    }
+  }
+}
+
+async function onFileInputChange(event) {
+  const file = event.target.files?.[0]
   event.target.value = ''
+  if (!file) return
+
+  try {
+    await vocabStore.addLocalSource(file)
+  } catch (err) {
+    console.error(err)
+    alert(err.message || 'Failed to import local DB.')
+  }
 }
 
-async function removeUserVocab(vocab) {
-  await vocabStore.removeUserVocabulary(vocab.name)
-}
-
-function rebuildIndex() {
-  vocabStore.buildSearchIndex()
+async function removeSource(sourceId) {
+  try {
+    await vocabStore.removeSource(sourceId)
+  } catch (err) {
+    console.error(err)
+    alert(err.message || 'Failed to remove source.')
+  }
 }
 </script>

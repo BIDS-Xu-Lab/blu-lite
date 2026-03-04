@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:index": "bun scripts/build-index-db.js",
+    "build:vocab": "bun scripts/build-index-db.js",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -15,11 +17,9 @@
     "@fortawesome/free-solid-svg-icons": "^7.2.0",
     "@fortawesome/vue-fontawesome": "^3.1.3",
     "@primeuix/themes": "^2.0.3",
+    "@sqlite.org/sqlite-wasm": "^3.51.2-build6",
     "@tailwindcss/vite": "^4.2.1",
     "@vitejs/plugin-vue": "^6.0.4",
-    "idb": "^8.0.3",
-    "jszip": "^3.10.1",
-    "minisearch": "^7.2.0",
     "pinia": "^3.0.4",
     "primevue": "^4.5.4",
     "quill": "^2.0.3",

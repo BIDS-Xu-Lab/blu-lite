@@ -8,6 +8,11 @@
   </head>
   <body>
     <div id="app"></div>
+    <script>
+      if ('serviceWorker' in navigator && !window.crossOriginIsolated) {
+        navigator.serviceWorker.register('/blu-lite/coi-serviceworker.js')
+      }
+    </script>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>
