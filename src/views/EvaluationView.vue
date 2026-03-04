@@ -88,9 +88,49 @@
               </div>
 
               <div v-if="goldComparison" class="grid grid-cols-1 lg:grid-cols-3 gap-3">
-                <MetricCard title="Entities" :metrics="goldComparison.corpus.entities" />
+                <MetricCard title="Entities" :metrics="goldComparison.corpus.entities" :kappa="goldComparison.corpus.kappa" />
                 <MetricCard title="Relations" :metrics="goldComparison.corpus.relations" />
                 <MetricCard title="Combined" :metrics="goldComparison.corpus.combined" />
+              </div>
+            </section>
+
+            <section v-if="sortedEntityTypeRows.length > 0" class="bg-white border border-gray-200 rounded-lg p-4 mb-4">
+              <h3 class="text-sm font-medium text-gray-700 mb-2">Entity Type Breakdown</h3>
+              <div class="overflow-x-auto">
+                <table class="min-w-full text-xs">
+                  <thead>
+                    <tr class="text-left text-gray-500 border-b border-gray-200">
+                      <th class="py-1 pr-4 w-36">Type</th>
+                      <th class="py-1 pr-4">Strict F1</th>
+                      <th class="py-1 pr-4">Relaxed F1</th>
+                      <th class="py-1 pr-3">Strict P / R</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="row in sortedEntityTypeRows" :key="row.type" class="border-b border-gray-50">
+                      <td class="py-1.5 pr-4 font-medium text-gray-700">{{ row.type }}</td>
+                      <td class="py-1.5 pr-4">
+                        <div class="flex items-center gap-2">
+                          <div class="w-20 h-2 bg-gray-100 rounded overflow-hidden">
+                            <div class="h-full bg-blue-400 rounded" :style="{ width: (row.strict.f1 * 100) + '%' }" />
+                          </div>
+                          <span class="text-gray-800 font-medium w-12">{{ formatPercent(row.strict.f1) }}</span>
+                        </div>
+                      </td>
+                      <td class="py-1.5 pr-4">
+                        <div class="flex items-center gap-2">
+                          <div class="w-20 h-2 bg-gray-100 rounded overflow-hidden">
+                            <div class="h-full bg-blue-300 rounded" :style="{ width: (row.relaxed.f1 * 100) + '%' }" />
+                          </div>
+                          <span class="text-gray-700 w-12">{{ formatPercent(row.relaxed.f1) }}</span>
+                        </div>
+                      </td>
+                      <td class="py-1.5 pr-3 text-gray-500">
+                        {{ formatPercent(row.strict.precision) }} / {{ formatPercent(row.strict.recall) }}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </section>
 
@@ -105,6 +145,7 @@
                       <th class="py-1 pr-3">Relaxed F1</th>
                       <th class="py-1 pr-3">Strict P/R</th>
                       <th class="py-1 pr-3">Relaxed P/R</th>
+                      <th class="py-1 pr-3">Cohen's κ</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -122,6 +163,7 @@
                       <td class="py-1 pr-3">
                         {{ formatPercent(row.metrics.relaxed.precision) }}/{{ formatPercent(row.metrics.relaxed.recall) }}
                       </td>
+                      <td class="py-1 pr-3">{{ row.kappa != null ? row.kappa.toFixed(3) : 'N/A' }}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -137,6 +179,7 @@
                       <th class="py-1 pr-3">Document</th>
                       <th class="py-1 pr-3">Strict F1</th>
                       <th class="py-1 pr-3">Relaxed F1</th>
+                      <th class="py-1 pr-3">Cohen's κ</th>
                       <th class="py-1 pr-3">Pred (E/R)</th>
                       <th class="py-1 pr-3">Gold (E/R)</th>
                     </tr>
@@ -150,11 +193,17 @@
                       <td class="py-1 pr-3">{{ row.fileName }}</td>
                       <td class="py-1 pr-3">{{ formatPercent(row.combined.strict.f1) }}</td>
                       <td class="py-1 pr-3">{{ formatPercent(row.combined.relaxed.f1) }}</td>
+                      <td class="py-1 pr-3">{{ row.kappa != null ? row.kappa.toFixed(3) : 'N/A' }}</td>
                       <td class="py-1 pr-3">{{ row.predCounts.entities }}/{{ row.predCounts.relations }}</td>
                       <td class="py-1 pr-3">{{ row.goldCounts.entities }}/{{ row.goldCounts.relations }}</td>
                     </tr>
                   </tbody>
                 </table>
+                <div v-if="goldComparison.corpus.kappa != null" class="mt-3 pt-3 border-t border-gray-100 flex items-center gap-2 text-xs text-gray-600">
+                  <span class="font-medium">Macro-averaged Cohen's κ:</span>
+                  <span class="text-gray-900 font-mono">{{ goldComparison.corpus.kappa.toFixed(3) }}</span>
+                  <span class="text-gray-400">(character-level, entity labels)</span>
+                </div>
               </div>
             </section>
 
@@ -171,49 +220,79 @@
                 </select>
               </div>
 
-              <div v-if="selectedDocName" class="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                <div class="border border-gray-200 rounded">
-                  <div class="px-3 py-2 border-b border-gray-100 text-xs font-medium text-gray-700 bg-gray-50">
-                    {{ currentGoldAnnotator?.name }} (Gold)
+              <div v-if="selectedDocName">
+                <!-- Entity disagreement cards -->
+                <div v-if="currentDocEntityDisagreements.length === 0" class="text-xs text-gray-400 italic mb-3">
+                  All entities match strictly — no entity disagreements.
+                </div>
+                <div
+                  v-for="(item, idx) in currentDocEntityDisagreements"
+                  :key="'dis-' + idx"
+                  class="mb-3 border border-dashed rounded-lg p-3"
+                  :class="item.matchType === 'boundary' ? 'border-amber-300' : 'border-red-200'"
+                >
+                  <!-- Card header -->
+                  <div class="flex items-center gap-2 mb-2 pb-1.5 border-b border-gray-100 text-xs">
+                    <span class="px-1.5 py-0.5 bg-gray-100 rounded font-medium text-gray-700">
+                      {{ item.gold?.semantic || item.compare?.semantic }}
+                    </span>
+                    <span v-if="item.matchType === 'boundary'" class="text-amber-600 font-medium">Boundary mismatch</span>
+                    <span v-else-if="item.matchType === 'gold_only'" class="text-red-500 font-medium">Missing in {{ currentCompareAnnotator?.name }}</span>
+                    <span v-else class="text-red-500 font-medium">Missing in {{ currentGoldAnnotator?.name }} (Gold)</span>
                   </div>
-                  <div class="p-3 text-xs text-gray-700">
-                    <pre class="whitespace-pre-wrap break-words max-h-48 overflow-y-auto bg-gray-50 border border-gray-100 rounded p-2 text-[11px] leading-5"><span v-for="(seg, index) in goldSegments" :key="'g-' + index" :class="seg.highlighted ? 'bg-amber-200' : ''">{{ seg.text }}</span></pre>
-                    <div class="mt-2">
-                      <div class="font-medium mb-1">Entities</div>
-                      <div v-for="(item, index) in goldEntityRows" :key="'ge-' + index" class="mb-1">
-                        <StatusBadge :status="item.status" />
-                        <span class="ml-1">{{ item.semantic }} [{{ item.begin }}, {{ item.end }}]</span>
-                      </div>
+                  <!-- Two-column context -->
+                  <div class="grid grid-cols-2 gap-3">
+                    <!-- Gold side -->
+                    <div>
+                      <div class="text-[11px] font-medium text-gray-600 mb-1">{{ currentGoldAnnotator?.name }} (Gold)</div>
+                      <template v-if="item.gold">
+                        <div class="text-[11px] font-mono text-gray-500 mb-1">
+                          {{ item.gold.begin }}~{{ item.gold.end }}:
+                          <strong class="text-gray-800">"{{ item.content.slice(item.gold.begin, item.gold.end) }}"</strong>
+                        </div>
+                        <div class="text-xs bg-gray-50 rounded p-2 leading-5 break-words">
+                          <span class="text-gray-400">{{ item.content.slice(Math.max(0, item.gold.begin - 100), item.gold.begin) }}</span><mark class="bg-amber-200 rounded-sm px-0.5 text-gray-900 not-italic">{{ item.content.slice(item.gold.begin, item.gold.end) }}</mark><span class="text-gray-400">{{ item.content.slice(item.gold.end, Math.min(item.content.length, item.gold.end + 100)) }}</span>
+                        </div>
+                      </template>
+                      <div v-else class="text-xs text-gray-400 italic bg-gray-50 rounded p-2">Not annotated</div>
                     </div>
-                    <div class="mt-2">
-                      <div class="font-medium mb-1">Relations</div>
-                      <div v-for="(item, index) in goldRelationRows" :key="'gr-' + index" class="mb-1">
-                        <StatusBadge :status="item.status" />
-                        <span class="ml-1">{{ item.semantic }}: {{ item.fromText }} -> {{ item.toText }}</span>
-                      </div>
+                    <!-- Compare side -->
+                    <div>
+                      <div class="text-[11px] font-medium text-gray-600 mb-1">{{ currentCompareAnnotator?.name }}</div>
+                      <template v-if="item.compare">
+                        <div class="text-[11px] font-mono text-gray-500 mb-1">
+                          {{ item.compare.begin }}~{{ item.compare.end }}:
+                          <strong class="text-gray-800">"{{ item.content.slice(item.compare.begin, item.compare.end) }}"</strong>
+                        </div>
+                        <div class="text-xs bg-gray-50 rounded p-2 leading-5 break-words">
+                          <span class="text-gray-400">{{ item.content.slice(Math.max(0, item.compare.begin - 100), item.compare.begin) }}</span><mark class="bg-cyan-200 rounded-sm px-0.5 text-gray-900 not-italic">{{ item.content.slice(item.compare.begin, item.compare.end) }}</mark><span class="text-gray-400">{{ item.content.slice(item.compare.end, Math.min(item.content.length, item.compare.end + 100)) }}</span>
+                        </div>
+                      </template>
+                      <div v-else class="text-xs text-gray-400 italic bg-gray-50 rounded p-2">Not annotated</div>
                     </div>
                   </div>
                 </div>
 
-                <div class="border border-gray-200 rounded">
-                  <div class="px-3 py-2 border-b border-gray-100 text-xs font-medium text-gray-700 bg-gray-50">
-                    {{ currentCompareAnnotator?.name }}
-                  </div>
-                  <div class="p-3 text-xs text-gray-700">
-                    <pre class="whitespace-pre-wrap break-words max-h-48 overflow-y-auto bg-gray-50 border border-gray-100 rounded p-2 text-[11px] leading-5"><span v-for="(seg, index) in compareSegments" :key="'p-' + index" :class="seg.highlighted ? 'bg-cyan-200' : ''">{{ seg.text }}</span></pre>
-                    <div class="mt-2">
-                      <div class="font-medium mb-1">Entities</div>
-                      <div v-for="(item, index) in compareEntityRows" :key="'pe-' + index" class="mb-1">
-                        <StatusBadge :status="item.status" />
-                        <span class="ml-1">{{ item.semantic }} [{{ item.begin }}, {{ item.end }}]</span>
-                      </div>
+                <!-- Relation disagreements (compact list) -->
+                <div v-if="currentDocRelationDisagreements.length > 0" class="mt-4">
+                  <div class="text-xs font-medium text-gray-700 mb-2">Relation Disagreements</div>
+                  <div
+                    v-for="(item, idx) in currentDocRelationDisagreements"
+                    :key="'rel-' + idx"
+                    class="mb-2 border border-dashed rounded p-2 text-xs"
+                    :class="item.matchType === 'boundary' ? 'border-amber-300' : 'border-red-200'"
+                  >
+                    <div class="flex items-center gap-2 mb-1">
+                      <span class="px-1 py-0.5 bg-gray-100 rounded text-gray-700 font-medium">{{ item.gold?.semantic || item.compare?.semantic }}</span>
+                      <span v-if="item.matchType === 'boundary'" class="text-amber-600">Partial match</span>
+                      <span v-else-if="item.matchType === 'gold_only'" class="text-red-500">Missing in {{ currentCompareAnnotator?.name }}</span>
+                      <span v-else class="text-red-500">Missing in {{ currentGoldAnnotator?.name }} (Gold)</span>
                     </div>
-                    <div class="mt-2">
-                      <div class="font-medium mb-1">Relations</div>
-                      <div v-for="(item, index) in compareRelationRows" :key="'pr-' + index" class="mb-1">
-                        <StatusBadge :status="item.status" />
-                        <span class="ml-1">{{ item.semantic }}: {{ item.fromText }} -> {{ item.toText }}</span>
-                      </div>
+                    <div class="grid grid-cols-2 gap-2 text-gray-600">
+                      <div v-if="item.gold">{{ item.gold.fromEnt.semantic }}[{{ item.gold.fromEnt.begin }},{{ item.gold.fromEnt.end }}] → {{ item.gold.toEnt.semantic }}[{{ item.gold.toEnt.begin }},{{ item.gold.toEnt.end }}]</div>
+                      <div v-else class="text-gray-400 italic">—</div>
+                      <div v-if="item.compare">{{ item.compare.fromEnt.semantic }}[{{ item.compare.fromEnt.begin }},{{ item.compare.fromEnt.end }}] → {{ item.compare.toEnt.semantic }}[{{ item.compare.toEnt.begin }},{{ item.compare.toEnt.end }}]</div>
+                      <div v-else class="text-gray-400 italic">—</div>
                     </div>
                   </div>
                 </div>
@@ -246,6 +325,65 @@ import {
   relationStrictMatch,
 } from '../utils/evaluation.js'
 
+function computeEntityDisagreements(goldEntities, compareEntities, content) {
+  const items = []
+  const pairedCompareIdxs = new Set()
+
+  for (let gi = 0; gi < goldEntities.length; gi++) {
+    const gold = goldEntities[gi]
+    if (compareEntities.some((c) => entityStrictMatch(gold, c))) continue
+
+    let pairedCi = -1
+    for (let ci = 0; ci < compareEntities.length; ci++) {
+      if (pairedCompareIdxs.has(ci)) continue
+      if (entityRelaxedMatch(gold, compareEntities[ci])) { pairedCi = ci; break }
+    }
+
+    if (pairedCi >= 0) {
+      pairedCompareIdxs.add(pairedCi)
+      items.push({ matchType: 'boundary', gold, compare: compareEntities[pairedCi], content })
+    } else {
+      items.push({ matchType: 'gold_only', gold, compare: null, content })
+    }
+  }
+
+  for (let ci = 0; ci < compareEntities.length; ci++) {
+    if (pairedCompareIdxs.has(ci)) continue
+    const compare = compareEntities[ci]
+    if (goldEntities.some((g) => entityStrictMatch(g, compare))) continue
+    items.push({ matchType: 'compare_only', gold: null, compare, content })
+  }
+  return items
+}
+
+function computeRelationDisagreements(goldRelations, compareRelations) {
+  const items = []
+  const pairedCompareIdxs = new Set()
+
+  for (const gold of goldRelations) {
+    if (compareRelations.some((c) => relationStrictMatch(gold, c))) continue
+    let pairedCi = -1
+    for (let ci = 0; ci < compareRelations.length; ci++) {
+      if (pairedCompareIdxs.has(ci)) continue
+      if (relationRelaxedMatch(gold, compareRelations[ci])) { pairedCi = ci; break }
+    }
+    if (pairedCi >= 0) {
+      pairedCompareIdxs.add(pairedCi)
+      items.push({ matchType: 'boundary', gold, compare: compareRelations[pairedCi] })
+    } else {
+      items.push({ matchType: 'gold_only', gold, compare: null })
+    }
+  }
+
+  for (let ci = 0; ci < compareRelations.length; ci++) {
+    if (pairedCompareIdxs.has(ci)) continue
+    const compare = compareRelations[ci]
+    if (goldRelations.some((g) => relationStrictMatch(g, compare))) continue
+    items.push({ matchType: 'compare_only', gold: null, compare })
+  }
+  return items
+}
+
 const annotators = ref([])
 const goldAnnotatorId = ref(null)
 const selectedCompareAnnotatorId = ref(null)
@@ -275,6 +413,7 @@ const pairwiseRows = computed(() => {
         left: left.name,
         right: right.name,
         metrics: result.corpus.combined,
+        kappa: result.corpus.kappa,
       })
     }
   }
@@ -355,6 +494,29 @@ const compareRelationRows = computed(() => {
 })
 
 const totalDocs = computed(() => annotators.value.reduce((sum, a) => sum + a.docs.size, 0))
+
+const sortedEntityTypeRows = computed(() => {
+  const map = goldComparison.value?.corpus.entityTypeMetrics ?? {}
+  return Object.entries(map)
+    .map(([type, metrics]) => ({ type, strict: metrics.strict, relaxed: metrics.relaxed }))
+    .sort((a, b) => b.strict.f1 - a.strict.f1)
+})
+
+const currentDocEntityDisagreements = computed(() => {
+  const content = currentGoldDoc.value?.content || currentCompareDoc.value?.content || ''
+  return computeEntityDisagreements(
+    currentGoldDoc.value?.entities ?? [],
+    currentCompareDoc.value?.entities ?? [],
+    content,
+  )
+})
+
+const currentDocRelationDisagreements = computed(() => {
+  return computeRelationDisagreements(
+    currentGoldDoc.value?.relations ?? [],
+    currentCompareDoc.value?.relations ?? [],
+  )
+})
 
 function formatPercent(value) {
   return `${(value * 100).toFixed(1)}%`
@@ -455,16 +617,26 @@ const MetricCard = defineComponent({
   props: {
     title: { type: String, required: true },
     metrics: { type: Object, required: true },
+    kappa: { type: Number, default: null },
   },
   setup(props) {
     const p = (n) => `${(n * 100).toFixed(1)}%`
-    return () => h('div', { class: 'border border-gray-200 rounded p-3' }, [
-      h('div', { class: 'text-xs font-medium text-gray-600 mb-1' }, props.title),
-      h('div', { class: 'text-[11px] text-gray-500 mb-1' }, 'Strict'),
-      h('div', { class: 'text-xs text-gray-700 mb-2' }, `P ${p(props.metrics.strict.precision)} | R ${p(props.metrics.strict.recall)} | F1 ${p(props.metrics.strict.f1)}`),
-      h('div', { class: 'text-[11px] text-gray-500 mb-1' }, 'Relaxed'),
-      h('div', { class: 'text-xs text-gray-700' }, `P ${p(props.metrics.relaxed.precision)} | R ${p(props.metrics.relaxed.recall)} | F1 ${p(props.metrics.relaxed.f1)}`),
-    ])
+    return () => {
+      const children = [
+        h('div', { class: 'text-xs font-medium text-gray-600 mb-1' }, props.title),
+        h('div', { class: 'text-[11px] text-gray-500 mb-1' }, 'Strict'),
+        h('div', { class: 'text-xs text-gray-700 mb-2' }, `P ${p(props.metrics.strict.precision)} | R ${p(props.metrics.strict.recall)} | F1 ${p(props.metrics.strict.f1)}`),
+        h('div', { class: 'text-[11px] text-gray-500 mb-1' }, 'Relaxed'),
+        h('div', { class: 'text-xs text-gray-700' }, `P ${p(props.metrics.relaxed.precision)} | R ${p(props.metrics.relaxed.recall)} | F1 ${p(props.metrics.relaxed.f1)}`),
+      ]
+      if (props.kappa != null) {
+        children.push(
+          h('div', { class: 'text-[11px] text-gray-500 mt-2 mb-1' }, "Cohen's κ"),
+          h('div', { class: 'text-xs text-gray-700' }, props.kappa.toFixed(3)),
+        )
+      }
+      return h('div', { class: 'border border-gray-200 rounded p-3' }, children)
+    }
   },
 })
 

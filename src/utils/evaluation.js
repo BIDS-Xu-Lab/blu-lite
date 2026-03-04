@@ -2,8 +2,17 @@ function isObject(value) {
   return value && typeof value === 'object'
 }
 
-function safeNumber(value) {
-  return Number.isFinite(value) ? value : 0
+function parseOffset(value) {
+  const num = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(num) ? num : null
+}
+
+function normalizeSpan(beginValue, endValue) {
+  const begin = parseOffset(beginValue)
+  const end = parseOffset(endValue)
+  if (begin === null || end === null) return null
+  if (end < begin) return { begin: end, end: begin }
+  return { begin, end }
 }
 
 export function flattenAnnotations(indexes) {
@@ -16,9 +25,11 @@ export function flattenAnnotations(indexes) {
   for (const indexData of Object.values(indexes)) {
     if (Array.isArray(indexData?.Entity)) {
       for (const entity of indexData.Entity) {
+        const span = normalizeSpan(entity.begin, entity.end)
+        if (!span) continue
         entities.push({
-          begin: safeNumber(entity.begin),
-          end: safeNumber(entity.end),
+          begin: span.begin,
+          end: span.end,
           semantic: entity.semantic || '',
           type: 'Entity',
         })
@@ -26,17 +37,20 @@ export function flattenAnnotations(indexes) {
     }
     if (Array.isArray(indexData?.Relation)) {
       for (const relation of indexData.Relation) {
+        const fromSpan = normalizeSpan(relation.fromEnt?.begin, relation.fromEnt?.end)
+        const toSpan = normalizeSpan(relation.toEnt?.begin, relation.toEnt?.end)
+        if (!fromSpan || !toSpan) continue
         relations.push({
           semantic: relation.semantic || '',
           type: 'Relation',
           fromEnt: {
-            begin: safeNumber(relation.fromEnt?.begin),
-            end: safeNumber(relation.fromEnt?.end),
+            begin: fromSpan.begin,
+            end: fromSpan.end,
             semantic: relation.fromEnt?.semantic || '',
           },
           toEnt: {
-            begin: safeNumber(relation.toEnt?.begin),
-            end: safeNumber(relation.toEnt?.end),
+            begin: toSpan.begin,
+            end: toSpan.end,
             semantic: relation.toEnt?.semantic || '',
           },
         })
@@ -86,27 +100,39 @@ export function relationRelaxedMatch(a, b) {
 }
 
 function matchCounts(predItems, goldItems, matcher) {
-  const matchedGoldIndexes = new Set()
-  let tp = 0
+  const adjacency = predItems.map((pred) => {
+    const candidates = []
+    for (let gi = 0; gi < goldItems.length; gi++) {
+      if (matcher(pred, goldItems[gi])) candidates.push(gi)
+    }
+    return candidates
+  })
 
-  for (const pred of predItems) {
-    let matchedIndex = -1
-    for (let i = 0; i < goldItems.length; i++) {
-      if (matchedGoldIndexes.has(i)) continue
-      if (matcher(pred, goldItems[i])) {
-        matchedIndex = i
-        break
+  const goldMatchedByPred = new Array(goldItems.length).fill(-1)
+
+  function tryMatch(predIndex, visitedGold) {
+    for (const goldIndex of adjacency[predIndex]) {
+      if (visitedGold[goldIndex]) continue
+      visitedGold[goldIndex] = true
+      if (goldMatchedByPred[goldIndex] === -1 || tryMatch(goldMatchedByPred[goldIndex], visitedGold)) {
+        goldMatchedByPred[goldIndex] = predIndex
+        return true
       }
     }
-    if (matchedIndex >= 0) {
-      matchedGoldIndexes.add(matchedIndex)
-      tp++
-    }
+    return false
   }
 
-  const fp = predItems.length - tp
-  const fn = goldItems.length - tp
-  return { tp, fp, fn }
+  let tp = 0
+  for (let pi = 0; pi < predItems.length; pi++) {
+    const visitedGold = new Array(goldItems.length).fill(false)
+    if (tryMatch(pi, visitedGold)) tp++
+  }
+
+  return {
+    tp,
+    fp: predItems.length - tp,
+    fn: goldItems.length - tp,
+  }
 }
 
 export function countsToMetrics(counts) {
@@ -123,6 +149,61 @@ export function evaluateItems(predItems, goldItems, strictMatcher, relaxedMatche
     strict: { ...strictCounts, ...countsToMetrics(strictCounts) },
     relaxed: { ...relaxedCounts, ...countsToMetrics(relaxedCounts) },
   }
+}
+
+export function evaluateByEntityType(predEntities, goldEntities) {
+  const allTypes = new Set([
+    ...predEntities.map((e) => e.semantic),
+    ...goldEntities.map((e) => e.semantic),
+  ])
+  const result = {}
+  for (const type of allTypes) {
+    const predOfType = predEntities.filter((e) => e.semantic === type)
+    const goldOfType = goldEntities.filter((e) => e.semantic === type)
+    result[type] = evaluateItems(predOfType, goldOfType, entityStrictMatch, entityRelaxedMatch)
+  }
+  return result
+}
+
+export function computeCharKappa(predDoc, goldDoc) {
+  const content = predDoc?.content || goldDoc?.content || ''
+  const n = content.length
+  if (n === 0) return null
+
+  const predLabels = new Array(n).fill('O')
+  const goldLabels = new Array(n).fill('O')
+
+  for (const entity of (predDoc?.entities ?? [])) {
+    const begin = Math.max(0, entity.begin)
+    const end = Math.min(n, entity.end)
+    for (let i = begin; i < end; i++) predLabels[i] = entity.semantic
+  }
+
+  for (const entity of (goldDoc?.entities ?? [])) {
+    const begin = Math.max(0, entity.begin)
+    const end = Math.min(n, entity.end)
+    for (let i = begin; i < end; i++) goldLabels[i] = entity.semantic
+  }
+
+  let agree = 0
+  const predFreq = {}
+  const goldFreq = {}
+
+  for (let i = 0; i < n; i++) {
+    if (predLabels[i] === goldLabels[i]) agree++
+    predFreq[predLabels[i]] = (predFreq[predLabels[i]] || 0) + 1
+    goldFreq[goldLabels[i]] = (goldFreq[goldLabels[i]] || 0) + 1
+  }
+
+  const Po = agree / n
+  const allLabels = new Set([...Object.keys(predFreq), ...Object.keys(goldFreq)])
+  let Pe = 0
+  for (const label of allLabels) {
+    Pe += ((predFreq[label] || 0) / n) * ((goldFreq[label] || 0) / n)
+  }
+
+  if (1 - Pe < 1e-10) return 1
+  return (Po - Pe) / (1 - Pe)
 }
 
 export function evaluateDocument(predDoc, goldDoc) {
@@ -152,6 +233,8 @@ export function evaluateDocument(predDoc, goldDoc) {
       strict: { ...strictCombinedCounts, ...countsToMetrics(strictCombinedCounts) },
       relaxed: { ...relaxedCombinedCounts, ...countsToMetrics(relaxedCombinedCounts) },
     },
+    kappa: computeCharKappa(predDoc, goldDoc),
+    entityTypeMetrics: evaluateByEntityType(predEntities, goldEntities),
   }
 }
 
@@ -195,7 +278,33 @@ export function evaluateCorpus(predDocsMap, goldDocsMap) {
     relaxed: aggregateMetrics(documentResults.map((r) => r.combined), 'relaxed'),
   }
 
-  return { documentResults, corpus: { entities, relations, combined } }
+  const kappaValues = documentResults.map((r) => r.kappa).filter((k) => k !== null)
+  const kappa = kappaValues.length > 0
+    ? kappaValues.reduce((a, b) => a + b, 0) / kappaValues.length
+    : null
+
+  const typeCountsMap = {}
+  for (const docResult of documentResults) {
+    for (const [type, metrics] of Object.entries(docResult.entityTypeMetrics ?? {})) {
+      if (!typeCountsMap[type]) {
+        typeCountsMap[type] = { strict: { tp: 0, fp: 0, fn: 0 }, relaxed: { tp: 0, fp: 0, fn: 0 } }
+      }
+      for (const mode of ['strict', 'relaxed']) {
+        typeCountsMap[type][mode].tp += metrics[mode].tp
+        typeCountsMap[type][mode].fp += metrics[mode].fp
+        typeCountsMap[type][mode].fn += metrics[mode].fn
+      }
+    }
+  }
+  const entityTypeMetrics = {}
+  for (const [type, counts] of Object.entries(typeCountsMap)) {
+    entityTypeMetrics[type] = {
+      strict: { ...counts.strict, ...countsToMetrics(counts.strict) },
+      relaxed: { ...counts.relaxed, ...countsToMetrics(counts.relaxed) },
+    }
+  }
+
+  return { documentResults, corpus: { entities, relations, combined, kappa, entityTypeMetrics } }
 }
 
 export function matchStatus(item, referenceItems, strictMatcher, relaxedMatcher) {
