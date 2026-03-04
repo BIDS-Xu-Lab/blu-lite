@@ -80,7 +80,9 @@
             <span class="text-xs font-semibold text-gray-700">{{ result.concept_id }}</span>
             <span class="text-[10px] text-gray-400 uppercase bg-gray-100 px-1 rounded">{{ result.vocabulary }}</span>
           </div>
-          <div class="text-xs text-gray-600 truncate" :title="result.terms">{{ primaryName(result.terms) }}</div>
+          <div class="text-xs text-gray-600 whitespace-normal break-words" :title="formattedTerms(result.terms)">
+            {{ formattedTerms(result.terms) }}
+          </div>
         </div>
         <button
           v-if="isSelected(result)"
@@ -224,9 +226,13 @@ const currentConcept = computed(() => {
   }
 })
 
-function primaryName(terms) {
+function formattedTerms(terms) {
   if (!terms) return ''
-  return terms.split('|')[0]
+  return terms
+    .split('|')
+    .map((term) => term.trim())
+    .filter(Boolean)
+    .join(' | ')
 }
 
 function isSelected(result) {
