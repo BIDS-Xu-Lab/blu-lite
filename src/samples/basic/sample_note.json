@@ -18,6 +18,22 @@
         }
       ]
     },
+    "47": {
+      "Entity": [
+        {
+          "id": "E11",
+          "semantic": "disease",
+          "begin": 47,
+          "end": 55,
+          "type": "Entity",
+          "attrs": {
+            "concept": { "id": "A1", "attrKey": "concept", "attrValue": "C12312312", "attrType": "text", "annotationValue": "", "attrIcon": "" },
+            "vocabulary": { "id": "A11", "attrKey": "vocabulary", "attrValue": "LNC", "attrType": "text", "annotationValue": "", "attrIcon": "" },
+            "certainty": { "id": "A2", "attrKey": "certainty", "attrValue": "positive", "attrType": "enum", "annotationValue": "", "attrIcon": "" }
+          }
+        }
+      ]
+    },
     "71": {
       "Entity": [
         {
@@ -42,17 +58,47 @@
           "fromEnt": { "begin": 71, "end": 80, "semantic": "drug", "type": "Entity" },
           "toEnt": { "begin": 31, "end": 55, "semantic": "disease", "type": "Entity" },
           "attrs": {}
+        },
+        {
+          "id": "R11",
+          "semantic": "treatment",
+          "type": "Relation",
+          "begin": 71,
+          "end": 80,
+          "fromEnt": { "begin": 71, "end": 80, "semantic": "drug", "type": "Entity" },
+          "toEnt": { "begin": 47, "end": 55, "semantic": "disease", "type": "Entity" },
+          "attrs": {}
+        },
+        {
+          "id": "R13",
+          "semantic": "side_effect",
+          "type": "Relation",
+          "begin": 71,
+          "end": 80,
+          "fromEnt": { "begin": 71, "end": 80, "semantic": "drug", "type": "Entity" },
+          "toEnt": { "begin": 128, "end": 137, "semantic": "event", "type": "Entity" },
+          "attrs": {}
+        },
+        {
+          "id": "R14",
+          "semantic": "side_effect",
+          "type": "Relation",
+          "begin": 71,
+          "end": 80,
+          "fromEnt": { "begin": 71, "end": 80, "semantic": "drug", "type": "Entity" },
+          "toEnt": { "begin": 142, "end": 151, "semantic": "event", "type": "Entity" },
+          "attrs": {}
         }
       ]
     },
     "128": {
       "Entity": [
-        { "id": "E3", "semantic": "disease", "begin": 128, "end": 137, "type": "Entity", "attrs": {} }
+        { "id": "E3", "semantic": "event", "begin": 128, "end": 137, "type": "Entity", "attrs": {} }
       ]
     },
     "142": {
       "Entity": [
-        { "id": "E4", "semantic": "disease", "begin": 142, "end": 151, "type": "Entity", "attrs": {} }
+        { "id": "E4", "semantic": "event", "begin": 142, "end": 151, "type": "Entity", "attrs": {} }
       ]
     }
   }

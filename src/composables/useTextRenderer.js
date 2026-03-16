@@ -78,70 +78,21 @@ export function useTextRenderer(content, indexes, candidates = ref([])) {
         })
         i++
       } else if (seg.entities.length > 0) {
-        // Start of an annotated block — collect consecutive annotated segments
-        // that share a merged entity range
-        const blockSegments = [seg]
-        const entitySet = new Set(seg.entities.map((e) => e.entity.id || `${e.offsetKey}-${e.entityIndex}`))
-        let blockEnd = seg.end
-
-        // Expand while next segment is also annotated and overlaps with current block entities
-        let j = i + 1
-        while (j < segs.length && segs[j].entities.length > 0) {
-          // Check if this segment is within any entity that started in our block
-          const nextSeg = segs[j]
-          let connected = false
-          for (const es of nextSeg.entities) {
-            const eid = es.entity.id || `${es.offsetKey}-${es.entityIndex}`
-            if (entitySet.has(eid)) {
-              connected = true
-              break
-            }
-          }
-          if (!connected) {
-            // Check if any entity from nextSeg also covers segments already in block
-            for (const es of nextSeg.entities) {
-              if (es.begin < nextSeg.start) {
-                // This entity started before this segment, check if it overlaps block
-                if (es.begin < blockEnd && es.end > segs[i].start) {
-                  connected = true
-                  break
-                }
-              }
-            }
-          }
-
-          if (connected) {
-            blockSegments.push(nextSeg)
-            for (const es of nextSeg.entities) {
-              entitySet.add(es.entity.id || `${es.offsetKey}-${es.entityIndex}`)
-            }
-            blockEnd = Math.max(blockEnd, nextSeg.end)
-            j++
-          } else {
-            break
-          }
-        }
-
-        // Collect all unique entities in this block
-        const allEntitiesMap = new Map()
-        for (const bs of blockSegments) {
-          for (const es of bs.entities) {
-            const eid = es.entity.id || `${es.offsetKey}-${es.entityIndex}`
-            if (!allEntitiesMap.has(eid)) {
-              allEntitiesMap.set(eid, es)
-            }
-          }
-        }
-
+        // Each annotated segment is its own block.
+        // labelEntities: only entities whose begin == seg.start (anchored here).
+        // entities: all entities covering this segment (for underline bars).
+        const labelEntities = seg.entities.filter(
+          (es) => es.entity.begin === seg.start,
+        )
         blocks.push({
           type: 'annotated',
-          start: blockSegments[0].start,
-          end: blockSegments[blockSegments.length - 1].end,
-          segments: blockSegments,
-          entities: [...allEntitiesMap.values()],
+          start: seg.start,
+          end: seg.end,
+          text: seg.text,
+          entities: seg.entities,
+          labelEntities,
         })
-
-        i = j
+        i++
       } else {
         // Candidate block: seg.candidates.length > 0, no entities
         const blockSegments = [seg]

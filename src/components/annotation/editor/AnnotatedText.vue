@@ -15,29 +15,37 @@
         >{{ part.text }}</span>
       </template>
 
-      <!-- Annotated block: inline-flex column with text on top, labels below -->
+      <!-- Annotated block: one per segment, inline-flex column -->
       <span
         v-else-if="block.type === 'annotated'"
         class="annotated-block"
       >
-        <!-- Text row: render all segments in this block -->
+        <!-- Text row: single segment text spans -->
         <span class="annotated-block-text">
-          <template v-for="seg in block.segments" :key="seg.start">
-            <span
-              v-for="part in splitWithHighlight(seg.text, seg.start)"
-              :key="part.offset"
-              :data-offset="part.offset"
-              :style="partAnnotatedStyle(seg, part.highlighted)"
-              :class="{ 'segment-hovered': isSegmentHovered(seg), 'concept-mapping-blink': isSegmentConceptMapping(seg) }"
-              class="annotated-segment"
-            >{{ part.text }}</span>
-          </template>
+          <span
+            v-for="part in splitWithHighlight(block.text, block.start)"
+            :key="part.offset"
+            :data-offset="part.offset"
+            :style="partAnnotatedStyle(block, part.highlighted)"
+            :class="{ 'segment-hovered': isSegmentHovered(block), 'concept-mapping-blink': isSegmentConceptMapping(block) }"
+            class="annotated-segment"
+          >{{ part.text }}</span>
         </span>
 
-        <!-- Entity labels row: ALL entities in this block, stacked below -->
-        <span class="annotated-block-labels">
-          <EntityLabel
+        <!-- Stacked underline bars: one per entity covering this segment -->
+        <span class="annotated-block-underlines">
+          <span
             v-for="es in block.entities"
+            :key="'ul-' + (es.entity.id || (es.offsetKey + '-' + es.entityIndex))"
+            class="entity-underline-bar"
+            :style="{ backgroundColor: schemaStore.getEntityColor(es.entity.semantic).border }"
+          />
+        </span>
+
+        <!-- Entity labels: only for entities that START at this segment -->
+        <span v-if="block.labelEntities.length > 0" class="annotated-block-labels">
+          <EntityLabel
+            v-for="es in block.labelEntities"
             :key="es.entity.id || (es.offsetKey + '-' + es.entityIndex)"
             :entity="es.entity"
             :offset-key="es.offsetKey"
@@ -133,7 +141,6 @@ function segmentStyle(segment) {
   const color = schemaStore.getEntityColor(primary.entity.semantic)
   return {
     backgroundColor: color.bg,
-    borderBottom: `2px solid ${color.border}`,
   }
 }
 

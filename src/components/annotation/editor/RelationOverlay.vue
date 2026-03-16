@@ -136,7 +136,6 @@ const deleteMenuRef = ref(null)
 
 const SAME_ROW_THRESHOLD = 40
 const ROUTE_GAP = 18
-const CROSS_ROW_ARROW_LIFT = 24 // 1.5rem
 
 function findEntityLabel(begin, end, semantic) {
   if (!props.scrollContainer) return null
@@ -167,6 +166,12 @@ function clearRelationHover() {
   uiStore.setHoveredEntityKeys([])
 }
 
+const TRACK_X_SPACING = 7   // px between parallel departure/arrival tracks
+const TRACK_Y_STAGGER = 18  // px between staggered U-depths (must exceed relation label height ~16px)
+
+// Route type order for visual layering: same-row (shallowest) → cross-up → cross-down (deepest)
+const ROUTE_TYPE_ORDER = { same: 0, up: 1, down: 2 }
+
 const curves = computed(() => {
   // eslint-disable-next-line no-unused-vars
   const _tick = positionTick.value
@@ -176,73 +181,111 @@ const curves = computed(() => {
   const containerRect = props.scrollContainer.getBoundingClientRect()
   const scrollTop = props.scrollContainer.scrollTop
   const scrollLeft = props.scrollContainer.scrollLeft
-  const result = []
 
+  // Pass 1: gather raw positions for every relation
+  const raw = []
   for (const rel of relations) {
     const fromLabel = findEntityLabel(rel.fromEnt.begin, rel.fromEnt.end, rel.fromEnt.semantic)
-    const toLabel = findEntityLabel(rel.toEnt.begin, rel.toEnt.end, rel.toEnt.semantic)
+    const toLabel   = findEntityLabel(rel.toEnt.begin,   rel.toEnt.end,   rel.toEnt.semantic)
     if (!fromLabel || !toLabel) continue
 
     const fromRect = fromLabel.getBoundingClientRect()
-    const toRect = toLabel.getBoundingClientRect()
+    const toRect   = toLabel.getBoundingClientRect()
 
-    // Positions relative to scroll container content area
-    const fromCenterX = fromRect.left - containerRect.left + scrollLeft + fromRect.width / 2
-    const fromBottom = fromRect.bottom - containerRect.top + scrollTop
-    const fromTop = fromRect.top - containerRect.top + scrollTop
     const fromCenterY = fromRect.top - containerRect.top + scrollTop + fromRect.height / 2
-
-    const toCenterX = toRect.left - containerRect.left + scrollLeft + toRect.width / 2
-    const toBottom = toRect.bottom - containerRect.top + scrollTop
-    const toTop = toRect.top - containerRect.top + scrollTop
-    const toCenterY = toRect.top - containerRect.top + scrollTop + toRect.height / 2
-
-    let points, labelX, labelY
+    const toCenterY   = toRect.top   - containerRect.top + scrollTop + toRect.height  / 2
     const sameRow = Math.abs(fromCenterY - toCenterY) < SAME_ROW_THRESHOLD
+    const routeType = sameRow ? 'same' : (fromCenterY < toCenterY ? 'down' : 'up')
 
-    if (sameRow) {
-      // U-shape below both labels: down → horizontal → up
-      const routeY = Math.max(fromBottom, toBottom) + ROUTE_GAP
-      points = `${fromCenterX},${fromBottom} ${fromCenterX},${routeY} ${toCenterX},${routeY} ${toCenterX},${toBottom}`
-      labelX = (fromCenterX + toCenterX) / 2
-      labelY = routeY
-    } else if (fromCenterY < toCenterY) {
-      // TO is lower than FROM: keep current route to TO top
-      const midY = (fromBottom + toTop) / 2
-      const toY = toTop - CROSS_ROW_ARROW_LIFT
-      points = `${fromCenterX},${fromBottom} ${fromCenterX},${midY} ${toCenterX},${midY} ${toCenterX},${toY}`
-      labelX = (fromCenterX + toCenterX) / 2
-      labelY = midY
-    } else {
-      // TO is higher than FROM: start above FROM top and end at TO bottom
-      const startY = Math.max(0, fromTop - CROSS_ROW_ARROW_LIFT)
-      const midY = (startY + toBottom) / 2
-      points = `${fromCenterX},${startY} ${fromCenterX},${midY} ${toCenterX},${midY} ${toCenterX},${toBottom}`
-      labelX = (fromCenterX + toCenterX) / 2
-      labelY = midY
-    }
+    raw.push({
+      rel,
+      fromCenterX: fromRect.left   - containerRect.left + scrollLeft + fromRect.width  / 2,
+      fromBottom:  fromRect.bottom  - containerRect.top  + scrollTop,
+      fromCenterY,
+      toCenterX:   toRect.left   - containerRect.left + scrollLeft + toRect.width  / 2,
+      toBottom:    toRect.bottom  - containerRect.top  + scrollTop,
+      toCenterY,
+      routeType,
+      fromKey: entityKey(rel.fromEnt),
+      toKey:   entityKey(rel.toEnt),
+      xFromOffset: 0,
+      xToOffset:   0,
+      yStagger:    0,
+    })
+  }
 
-    const conceptId = rel.attrs?.concept?.attrValue
-    const vocab = rel.attrs?.vocabulary?.attrValue || ''
-    // originally I consider showing both vocab and id, but too long
-    const conceptText = conceptId ? (vocab ? `${conceptId}` : conceptId) : null
-    const labelWidth = Math.max(
-      rel.semantic.length * 6.5,
+  // Pass 2: assign spread offsets for routes sharing the same from- or to-entity.
+  // X-offset spreads departure/arrival tracks; Y-stagger is independent per routeType
+  // so naturally-separated route groups don't consume each other's stagger budget.
+  const fromGroups = new Map()
+  const toGroups   = new Map()
+  for (const rd of raw) {
+    if (!fromGroups.has(rd.fromKey)) fromGroups.set(rd.fromKey, [])
+    fromGroups.get(rd.fromKey).push(rd)
+    if (!toGroups.has(rd.toKey)) toGroups.set(rd.toKey, [])
+    toGroups.get(rd.toKey).push(rd)
+  }
+
+  for (const group of fromGroups.values()) {
+    if (group.length < 2) continue
+    group.sort((a, b) => {
+      if (a.routeType !== b.routeType) return ROUTE_TYPE_ORDER[a.routeType] - ROUTE_TYPE_ORDER[b.routeType]
+      return a.toCenterX - b.toCenterX
+    })
+    const half = (group.length - 1) / 2
+    const typeCounters = {}
+    group.forEach((rd, i) => {
+      rd.xFromOffset = (i - half) * TRACK_X_SPACING
+      typeCounters[rd.routeType] = typeCounters[rd.routeType] ?? 0
+      rd.yStagger = typeCounters[rd.routeType]++ * TRACK_Y_STAGGER
+    })
+  }
+
+  for (const group of toGroups.values()) {
+    if (group.length < 2) continue
+    group.sort((a, b) => a.fromCenterX - b.fromCenterX)
+    const half = (group.length - 1) / 2
+    group.forEach((rd, i) => {
+      rd.xToOffset = (i - half) * TRACK_X_SPACING
+    })
+  }
+
+  // Pass 3: build polyline points.
+  // Unified routing: all arrows point to toBottom from below (last segment goes upward).
+  //   fromBottom → routeY (below max of both bottoms) → toBottom
+  // routeType only affects which entity's bottom dominates the route depth:
+  //   same/down: max(fromBottom, toBottom) = toBottom (or ≈ same)
+  //   up:        max(fromBottom, toBottom) = fromBottom → U dips below FROM then rises to TO
+  const result = []
+  for (const rd of raw) {
+    const fromX   = rd.fromCenterX + rd.xFromOffset
+    const toX     = rd.toCenterX   + rd.xToOffset
+    const routeY  = Math.max(rd.fromBottom, rd.toBottom) + ROUTE_GAP + rd.yStagger
+
+    const points  = `${fromX},${rd.fromBottom} ${fromX},${routeY} ${toX},${routeY} ${toX},${rd.toBottom}`
+    const labelX  = (fromX + toX) / 2
+    const labelY  = routeY
+
+    const conceptId   = rd.rel.attrs?.concept?.attrValue
+    const vocab       = rd.rel.attrs?.vocabulary?.attrValue || ''
+    const conceptText = conceptId ? conceptId : null
+    const labelWidth  = Math.max(
+      rd.rel.semantic.length * 6.5,
       conceptText ? conceptText.length * 5 : 0,
     )
 
     result.push({
-      id: rel.id || `${rel._offsetKey}-${rel._relationIndex}`,
+      id:            rd.rel.id || `${rd.rel._offsetKey}-${rd.rel._relationIndex}`,
       points,
       labelX,
       labelY,
       labelWidth,
-      semantic: rel.semantic,
+      semantic:      rd.rel.semantic,
       conceptText,
-      fromEntityKey: entityKey(rel.fromEnt),
-      toEntityKey: entityKey(rel.toEnt),
-      _offsetKey: rel._offsetKey,
-      _relationIndex: rel._relationIndex,
+      fromEntityKey: rd.fromKey,
+      toEntityKey:   rd.toKey,
+      _offsetKey:    rd.rel._offsetKey,
+      _relationIndex: rd.rel._relationIndex,
     })
   }
 
