@@ -32,7 +32,7 @@
       
       <div class="flex items-center justify-between px-4 py-2 border-b border-gray-100 bg-gray-50">
         <span class="text-sm font-medium text-gray-700">
-          {{ fileStore.activeFile.filename.split('/').pop() }}
+          {{ activeFilename }}
         </span>
         <div class="flex items-center gap-3">
           <span class="text-xs text-gray-400">
@@ -63,6 +63,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useFileStore } from '../../../stores/fileStore.js'
 import { useAnnotationStore } from '../../../stores/annotationStore.js'
+import { normalizeAnnotationFilename } from '../../../utils/fileConverters.js'
 import AnnotatedText from './AnnotatedText.vue'
 import EntityTypeSelector from './EntityTypeSelector.vue'
 import EntityContextMenu from './EntityContextMenu.vue'
@@ -79,6 +80,10 @@ const targetEntityTypeHint = computed(() => {
   if (!annotationStore.pendingRelation) return ''
   return annotationStore.pendingRelation.targetEntityTypes?.join(', ') ?? ''
 })
+
+const activeFilename = computed(() =>
+  normalizeAnnotationFilename(fileStore.activeFile?.filename).split('/').pop(),
+)
 
 function handleKeydown(event) {
   if (event.key === 'Escape' && annotationStore.relationMode) {

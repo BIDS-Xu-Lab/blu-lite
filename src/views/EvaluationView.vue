@@ -351,6 +351,7 @@
 
 <script setup>
 import { computed, defineComponent, h, ref, watch } from 'vue'
+import { normalizeAnnotationData } from '../utils/fileConverters.js'
 import { validateAnnotationFile } from '../utils/validators.js'
 import {
   buildHighlightSegments,
@@ -615,8 +616,9 @@ async function readAnnotatorFolder(handle) {
     } catch {
       continue
     }
-    if (!validateAnnotationFile(parsed)) continue
-    docs.set(entry.name, parseAnnotationDocument(parsed, entry.name))
+    const normalized = normalizeAnnotationData(parsed, entry.name)
+    if (!validateAnnotationFile(normalized)) continue
+    docs.set(entry.name, parseAnnotationDocument(normalized, entry.name))
   }
   return docs
 }

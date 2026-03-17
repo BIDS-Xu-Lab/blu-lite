@@ -36,6 +36,7 @@
 
 <script setup>
 import { computed } from 'vue'
+import { normalizeAnnotationFilename } from '../../../utils/fileConverters.js'
 
 const props = defineProps({
   file: { type: Object, required: true },
@@ -46,7 +47,7 @@ const props = defineProps({
 defineEmits(['select', 'save', 'delete'])
 
 const displayName = computed(() => {
-  const name = props.file.filename || ''
+  const name = normalizeAnnotationFilename(props.file.filename)
   return name.split('/').pop()
 })
 </script>

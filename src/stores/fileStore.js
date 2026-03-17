@@ -1,7 +1,7 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 import { validateAnnotationFile } from '../utils/validators.js'
-import { txtToAnnotationJson } from '../utils/fileConverters.js'
+import { normalizeAnnotationData, txtToAnnotationJson } from '../utils/fileConverters.js'
 
 export const useFileStore = defineStore('files', () => {
   const directoryHandle = ref(null)
@@ -26,6 +26,13 @@ export const useFileStore = defineStore('files', () => {
     })
     return sorted
   })
+
+  async function rewriteAnnotationFile(handle, fileData) {
+    const writable = await handle.createWritable()
+    const { _dirty, ...cleanData } = fileData
+    await writable.write(JSON.stringify(cleanData, null, 2))
+    await writable.close()
+  }
 
   async function loadDirectory() {
     const handle = await window.showDirectoryPicker({ mode: 'readwrite' })
@@ -61,9 +68,14 @@ export const useFileStore = defineStore('files', () => {
           const file = await entry.getFile()
           const text = await file.text()
           const parsed = JSON.parse(text)
-          if (validateAnnotationFile(parsed) && !existingNames.has(parsed.filename)) {
-            parsed._dirty = false
-            newFiles.push(parsed)
+          const normalized = normalizeAnnotationData(parsed, entry.name)
+          if (validateAnnotationFile(normalized) && !existingNames.has(normalized.filename)) {
+            if (normalized.filename !== parsed.filename) {
+              await rewriteAnnotationFile(entry, normalized)
+            }
+            normalized._dirty = false
+            newFiles.push(normalized)
+            existingNames.add(normalized.filename)
           }
         } catch {
           // Skip invalid JSON files
@@ -99,9 +111,11 @@ export const useFileStore = defineStore('files', () => {
         const file = await handle.getFile()
         const text = await file.text()
         const parsed = JSON.parse(text)
-        if (validateAnnotationFile(parsed) && !existingNames.has(parsed.filename)) {
-          parsed._dirty = false
-          newFiles.push(parsed)
+        const normalized = normalizeAnnotationData(parsed, handle.name)
+        if (validateAnnotationFile(normalized) && !existingNames.has(normalized.filename)) {
+          normalized._dirty = false
+          newFiles.push(normalized)
+          existingNames.add(normalized.filename)
         }
       } catch {
         // Skip invalid files
@@ -140,16 +154,14 @@ export const useFileStore = defineStore('files', () => {
 
   async function saveFile(index) {
     if (!directoryHandle.value || index < 0 || index >= files.value.length) return
-    const fileData = files.value[index]
+    const fileData = normalizeAnnotationData(files.value[index])
+    files.value[index] = fileData
     const fname = fileData.filename.endsWith('.json')
       ? fileData.filename.split('/').pop()
       : fileData.filename.replace(/\.txt$/, '.json').split('/').pop()
 
     const fileHandle = await directoryHandle.value.getFileHandle(fname, { create: true })
-    const writable = await fileHandle.createWritable()
-    const { _dirty, ...cleanData } = fileData
-    await writable.write(JSON.stringify(cleanData, null, 2))
-    await writable.close()
+    await rewriteAnnotationFile(fileHandle, fileData)
     files.value[index]._dirty = false
   }
 
