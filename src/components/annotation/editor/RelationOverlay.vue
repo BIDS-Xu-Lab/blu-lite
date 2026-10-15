@@ -1,8 +1,9 @@
 <template>
+  <!-- Line layer: drawn behind the text so cross-line routes never cover words -->
   <svg
-    ref="svgRef"
+    ref="lineSvgRef"
     v-if="annotationStore.allRelations.length > 0"
-    class="relation-overlay"
+    class="relation-overlay relation-line-layer"
     :style="{ width: svgSize.width + 'px', height: svgSize.height + 'px' }"
   >
     <defs>
@@ -18,53 +19,63 @@
         <path d="M 0 0 L 10 3.5 L 0 7 z" fill="#9ca3af" />
       </marker>
     </defs>
-    <template v-for="curve in curves" :key="curve.id">
-      <!-- Right-angle polyline -->
-      <polyline
-        :points="curve.points"
-        fill="none"
-        stroke="#9ca3af"
-        stroke-width="2"
-        marker-end="url(#relation-arrow)"
+    <polyline
+      v-for="curve in curves"
+      :key="curve.id"
+      :points="curve.points"
+      fill="none"
+      stroke="#9ca3af"
+      stroke-width="2"
+      marker-end="url(#relation-arrow)"
+    />
+  </svg>
+
+  <!-- Label layer: above the text, in the space reserved under each line -->
+  <svg
+    ref="labelSvgRef"
+    v-if="annotationStore.allRelations.length > 0"
+    class="relation-overlay relation-label-layer"
+    :style="{ width: svgSize.width + 'px', height: svgSize.height + 'px' }"
+  >
+    <g
+      v-for="curve in curves"
+      :key="curve.id"
+      @mouseenter="handleRelationHover(curve)"
+      @mouseleave="clearRelationHover"
+      @click.stop="handleRelationClick(curve, $event)"
+    >
+      <!-- Relation label background -->
+      <rect
+        :x="curve.labelX - curve.labelWidth / 2 - 5"
+        :y="curve.conceptText ? curve.labelY - 14 : curve.labelY - 8"
+        :width="curve.labelWidth + 10"
+        :height="curve.conceptText ? 28 : 16"
+        rx="3"
+        fill="white"
+        stroke="#d1d5db"
+        stroke-width="1"
+        class="relation-label-bg"
       />
-      <g
-        @mouseenter="handleRelationHover(curve)"
-        @mouseleave="clearRelationHover"
-        @click.stop="handleRelationClick(curve, $event)"
+      <!-- Relation label text -->
+      <text
+        :x="curve.labelX"
+        :y="curve.conceptText ? curve.labelY : curve.labelY + 4"
+        text-anchor="middle"
+        class="relation-label-text"
       >
-        <!-- Relation label background -->
-        <rect
-          :x="curve.labelX - curve.labelWidth / 2 - 5"
-          :y="curve.conceptText ? curve.labelY - 14 : curve.labelY - 8"
-          :width="curve.labelWidth + 10"
-          :height="curve.conceptText ? 28 : 16"
-          rx="3"
-          fill="white"
-          stroke="#d1d5db"
-          stroke-width="1"
-          class="relation-label-bg"
-        />
-        <!-- Relation label text -->
-        <text
-          :x="curve.labelX"
-          :y="curve.conceptText ? curve.labelY : curve.labelY + 4"
-          text-anchor="middle"
-          class="relation-label-text"
-        >
-          {{ curve.semantic }}
-        </text>
-        <!-- Concept text below label name -->
-        <text
-          v-if="curve.conceptText"
-          :x="curve.labelX"
-          :y="curve.labelY + 12"
-          text-anchor="middle"
-          class="relation-concept-text"
-        >
-          {{ curve.conceptText }}
-        </text>
-      </g>
-    </template>
+        {{ curve.semantic }}
+      </text>
+      <!-- Concept text below label name -->
+      <text
+        v-if="curve.conceptText"
+        :x="curve.labelX"
+        :y="curve.labelY + 12"
+        text-anchor="middle"
+        class="relation-concept-text"
+      >
+        {{ curve.conceptText }}
+      </text>
+    </g>
   </svg>
 
   <!-- Relation context popup -->
@@ -98,7 +109,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useAnnotationStore } from '../../../stores/annotationStore.js'
 import { useFileStore } from '../../../stores/fileStore.js'
 import { useUiStore } from '../../../stores/uiStore.js'
@@ -127,31 +138,27 @@ function openRelationConceptMapping() {
   annotationStore.openConceptMapping('relation', offsetKey, relationIndex, { x, y })
 }
 
-const svgRef = ref(null)
+const lineSvgRef = ref(null)
+const labelSvgRef = ref(null)
 const svgSize = ref({ width: 0, height: 0 })
-const positionTick = ref(0)
+const curves = ref([])
 
 const deletePopup = ref({ visible: false, x: 0, y: 0, offsetKey: null, relationIndex: -1 })
 const deleteMenuRef = ref(null)
 
-const SAME_ROW_THRESHOLD = 40
-const ROUTE_GAP = 18
+// Route geometry (px). Every route leaves its FROM label downward, runs along a
+// horizontal "track" in the space reserved under a text line, and rises into
+// its TO label. Tracks are stacked so routes and their labels never overlap.
+const ENDPOINT_SPACING = 8   // max gap between routes leaving/entering one label
+const BAND_TOP_GAP = 6       // gap between a line's lowest label and its first track
+const BAND_BOTTOM_GAP = 6    // gap between the last track and the next text line
+const TRACK_GAP = 4          // gap between neighbouring tracks
+const TRACK_PAD_X = 4        // horizontal clearance between routes sharing a track
+const LABEL_HEIGHT = 16
+const LABEL_HEIGHT_CONCEPT = 28
 
-function findEntityLabel(begin, end, semantic) {
-  if (!props.scrollContainer) return null
-  const labels = props.scrollContainer.querySelectorAll('.entity-label')
-  for (const label of labels) {
-    const b = parseInt(label.dataset.entityBegin, 10)
-    const e = parseInt(label.dataset.entityEnd, 10)
-    if (b === begin && e === end) {
-      const text = label.textContent.trim().toLowerCase().split('\n')[0].trim()
-      if (text.startsWith(semantic.toLowerCase())) {
-        return label
-      }
-    }
-  }
-  return null
-}
+// Blocks padded to reserve route space; reset at the start of every layout
+const paddedBlocks = new Set()
 
 function entityKey(entity) {
   if (!entity) return ''
@@ -166,143 +173,187 @@ function clearRelationHover() {
   uiStore.setHoveredEntityKeys([])
 }
 
-const TRACK_X_SPACING = 7   // px between parallel departure/arrival tracks
-const TRACK_Y_STAGGER = 18  // px between staggered U-depths (must exceed relation label height ~16px)
+function clearReservedSpace() {
+  for (const block of paddedBlocks) block.style.paddingBottom = ''
+  paddedBlocks.clear()
+}
 
-// Route type order for visual layering: same-row (shallowest) → cross-up → cross-down (deepest)
-const ROUTE_TYPE_ORDER = { same: 0, up: 1, down: 2 }
-
-const curves = computed(() => {
-  // eslint-disable-next-line no-unused-vars
-  const _tick = positionTick.value
+function layoutRoutes() {
+  const container = props.scrollContainer
+  clearReservedSpace()
   const relations = annotationStore.allRelations
-  if (relations.length === 0 || !props.scrollContainer) return []
+  if (!container || relations.length === 0) return []
 
-  const containerRect = props.scrollContainer.getBoundingClientRect()
-  const scrollTop = props.scrollContainer.scrollTop
-  const scrollLeft = props.scrollContainer.scrollLeft
+  // Converts viewport rects into the scroll container's content coordinates
+  const originOf = () => {
+    const rect = container.getBoundingClientRect()
+    return { x: rect.left - container.scrollLeft, y: rect.top - container.scrollTop }
+  }
+  let origin = originOf()
 
-  // Pass 1: gather raw positions for every relation
-  const raw = []
+  const labelByKey = new Map()
+  for (const label of container.querySelectorAll('.entity-label')) {
+    const { entityBegin, entityEnd, entitySemantic } = label.dataset
+    const key = `${entityBegin}-${entityEnd}-${entitySemantic}`
+    if (!labelByKey.has(key)) labelByKey.set(key, label)
+  }
+
+  // Pass 1: group blocks into visual lines. Blocks are top-aligned inline-flex
+  // boxes, so every block on a line shares its top edge.
+  const lines = []
+  const lineOfBlock = new Map()
+  for (const block of container.querySelectorAll('.annotated-block, .candidate-block')) {
+    const rect = block.getBoundingClientRect()
+    const top = rect.top - origin.y
+    let line = lines[lines.length - 1]
+    if (!line || Math.abs(line.top - top) > 1) {
+      line = { top, bottom: -Infinity, tallest: null, routes: [], tracks: [], reserve: 0 }
+      lines.push(line)
+    }
+    if (rect.bottom - origin.y > line.bottom) {
+      line.bottom = rect.bottom - origin.y
+      line.tallest = block
+    }
+    lineOfBlock.set(block, line)
+  }
+
+  const routes = []
   for (const rel of relations) {
-    const fromLabel = findEntityLabel(rel.fromEnt.begin, rel.fromEnt.end, rel.fromEnt.semantic)
-    const toLabel   = findEntityLabel(rel.toEnt.begin,   rel.toEnt.end,   rel.toEnt.semantic)
+    const fromLabel = labelByKey.get(entityKey(rel.fromEnt))
+    const toLabel = labelByKey.get(entityKey(rel.toEnt))
     if (!fromLabel || !toLabel) continue
+    const fromLine = lineOfBlock.get(fromLabel.closest('.annotated-block'))
+    const toLine = lineOfBlock.get(toLabel.closest('.annotated-block'))
+    if (!fromLine || !toLine) continue
 
     const fromRect = fromLabel.getBoundingClientRect()
-    const toRect   = toLabel.getBoundingClientRect()
-
-    const fromCenterY = fromRect.top - containerRect.top + scrollTop + fromRect.height / 2
-    const toCenterY   = toRect.top   - containerRect.top + scrollTop + toRect.height  / 2
-    const sameRow = Math.abs(fromCenterY - toCenterY) < SAME_ROW_THRESHOLD
-    const routeType = sameRow ? 'same' : (fromCenterY < toCenterY ? 'down' : 'up')
-
-    raw.push({
-      rel,
-      fromCenterX: fromRect.left   - containerRect.left + scrollLeft + fromRect.width  / 2,
-      fromBottom:  fromRect.bottom  - containerRect.top  + scrollTop,
-      fromCenterY,
-      toCenterX:   toRect.left   - containerRect.left + scrollLeft + toRect.width  / 2,
-      toBottom:    toRect.bottom  - containerRect.top  + scrollTop,
-      toCenterY,
-      routeType,
-      fromKey: entityKey(rel.fromEnt),
-      toKey:   entityKey(rel.toEnt),
-      xFromOffset: 0,
-      xToOffset:   0,
-      yStagger:    0,
-    })
-  }
-
-  // Pass 2: assign spread offsets for routes sharing the same from- or to-entity.
-  // X-offset spreads departure/arrival tracks; Y-stagger is independent per routeType
-  // so naturally-separated route groups don't consume each other's stagger budget.
-  const fromGroups = new Map()
-  const toGroups   = new Map()
-  for (const rd of raw) {
-    if (!fromGroups.has(rd.fromKey)) fromGroups.set(rd.fromKey, [])
-    fromGroups.get(rd.fromKey).push(rd)
-    if (!toGroups.has(rd.toKey)) toGroups.set(rd.toKey, [])
-    toGroups.get(rd.toKey).push(rd)
-  }
-
-  for (const group of fromGroups.values()) {
-    if (group.length < 2) continue
-    group.sort((a, b) => {
-      if (a.routeType !== b.routeType) return ROUTE_TYPE_ORDER[a.routeType] - ROUTE_TYPE_ORDER[b.routeType]
-      return a.toCenterX - b.toCenterX
-    })
-    const half = (group.length - 1) / 2
-    const typeCounters = {}
-    group.forEach((rd, i) => {
-      rd.xFromOffset = (i - half) * TRACK_X_SPACING
-      typeCounters[rd.routeType] = typeCounters[rd.routeType] ?? 0
-      rd.yStagger = typeCounters[rd.routeType]++ * TRACK_Y_STAGGER
-    })
-  }
-
-  for (const group of toGroups.values()) {
-    if (group.length < 2) continue
-    group.sort((a, b) => a.fromCenterX - b.fromCenterX)
-    const half = (group.length - 1) / 2
-    group.forEach((rd, i) => {
-      rd.xToOffset = (i - half) * TRACK_X_SPACING
-    })
-  }
-
-  // Pass 3: build polyline points.
-  // Unified routing: all arrows point to toBottom from below (last segment goes upward).
-  //   fromBottom → routeY (below max of both bottoms) → toBottom
-  // routeType only affects which entity's bottom dominates the route depth:
-  //   same/down: max(fromBottom, toBottom) = toBottom (or ≈ same)
-  //   up:        max(fromBottom, toBottom) = fromBottom → U dips below FROM then rises to TO
-  const result = []
-  for (const rd of raw) {
-    const fromX   = rd.fromCenterX + rd.xFromOffset
-    const toX     = rd.toCenterX   + rd.xToOffset
-    const routeY  = Math.max(rd.fromBottom, rd.toBottom) + ROUTE_GAP + rd.yStagger
-
-    const points  = `${fromX},${rd.fromBottom} ${fromX},${routeY} ${toX},${routeY} ${toX},${rd.toBottom}`
-    const labelX  = (fromX + toX) / 2
-    const labelY  = routeY
-
-    const conceptId   = rd.rel.attrs?.concept?.attrValue
-    const vocab       = rd.rel.attrs?.vocabulary?.attrValue || ''
-    const conceptText = conceptId ? conceptId : null
-    const labelWidth  = Math.max(
-      rd.rel.semantic.length * 6.5,
+    const toRect = toLabel.getBoundingClientRect()
+    const conceptText = rel.attrs?.concept?.attrValue || null
+    const labelWidth = Math.max(
+      rel.semantic.length * 6.5,
       conceptText ? conceptText.length * 5 : 0,
     )
+    // Horizontal extent the route can occupy on its track: both labels plus the
+    // relation label, which is centered between wherever the endpoints land.
+    const half = labelWidth / 2 + 5
+    const left = Math.min(fromRect.left, toRect.left, (fromRect.left + toRect.left) / 2 - half)
+    const right = Math.max(fromRect.right, toRect.right, (fromRect.right + toRect.right) / 2 + half)
 
-    result.push({
-      id:            rd.rel.id || `${rd.rel._offsetKey}-${rd.rel._relationIndex}`,
-      points,
-      labelX,
-      labelY,
-      labelWidth,
-      semantic:      rd.rel.semantic,
+    routes.push({
+      rel,
+      fromLabel,
+      toLabel,
       conceptText,
-      fromEntityKey: rd.fromKey,
-      toEntityKey:   rd.toKey,
-      _offsetKey:    rd.rel._offsetKey,
-      _relationIndex: rd.rel._relationIndex,
+      labelWidth,
+      // The horizontal run goes under the lower of the two lines
+      band: fromLine.top >= toLine.top ? fromLine : toLine,
+      left: left - origin.x,
+      right: right - origin.x,
+      track: 0,
     })
   }
 
-  return result
-})
+  // Pass 2: pack each line's routes into tracks, shortest first, so nested
+  // routes sit inside the ones that span them. A route takes the shallowest
+  // track whose existing routes it doesn't horizontally overlap.
+  for (const route of routes) route.band.routes.push(route)
+  for (const line of lines) {
+    if (line.routes.length === 0) continue
+    line.routes.sort((a, b) => (a.right - a.left) - (b.right - b.left) || a.left - b.left)
+    for (const route of line.routes) {
+      let t = line.tracks.findIndex((track) => track.spans.every(
+        ([l, r]) => route.right + TRACK_PAD_X <= l || route.left - TRACK_PAD_X >= r,
+      ))
+      if (t === -1) {
+        t = line.tracks.length
+        line.tracks.push({ spans: [], height: 0 })
+      }
+      const track = line.tracks[t]
+      track.spans.push([route.left, route.right])
+      track.height = Math.max(track.height, route.conceptText ? LABEL_HEIGHT_CONCEPT : LABEL_HEIGHT)
+      route.track = t
+    }
+    line.reserve = BAND_TOP_GAP + BAND_BOTTOM_GAP
+      + line.tracks.reduce((sum, track) => sum + track.height, 0)
+      + TRACK_GAP * (line.tracks.length - 1)
+    // Padding the tallest block grows the whole line box by exactly this much
+    line.tallest.style.paddingBottom = `${line.reserve}px`
+    paddedBlocks.add(line.tallest)
+  }
+
+  // Pass 3: re-measure now that the reserved space has pushed lines down
+  // (horizontal positions are unchanged, only vertical ones move).
+  origin = originOf()
+  for (const line of lines) {
+    if (line.routes.length === 0) continue
+    let y = line.tallest.getBoundingClientRect().bottom - origin.y - line.reserve + BAND_TOP_GAP
+    line.trackY = line.tracks.map((track) => {
+      const center = y + track.height / 2
+      y += track.height + TRACK_GAP
+      return center
+    })
+  }
+
+  // Spread routes that share a label across its width. Routes heading left sit
+  // on the left half, routes heading right on the right half, and deeper routes
+  // sit outside shallower ones so the vertical runs don't cross.
+  const endpointsByLabel = new Map()
+  const addEndpoint = (label, route, side) => {
+    if (!endpointsByLabel.has(label)) endpointsByLabel.set(label, [])
+    endpointsByLabel.get(label).push({ route, side })
+  }
+  for (const route of routes) {
+    route.trackY = route.band.trackY[route.track]
+    addEndpoint(route.fromLabel, route, 'from')
+    addEndpoint(route.toLabel, route, 'to')
+  }
+  for (const [label, endpoints] of endpointsByLabel) {
+    const rect = label.getBoundingClientRect()
+    const centerX = rect.left - origin.x + rect.width / 2
+    const otherCenterX = ({ route, side }) => {
+      const other = (side === 'from' ? route.toLabel : route.fromLabel).getBoundingClientRect()
+      return other.left - origin.x + other.width / 2
+    }
+    for (const ep of endpoints) ep.headsLeft = otherCenterX(ep) < centerX - 1
+    endpoints.sort((a, b) => {
+      if (a.headsLeft !== b.headsLeft) return a.headsLeft ? -1 : 1
+      return a.headsLeft ? a.route.trackY - b.route.trackY : b.route.trackY - a.route.trackY
+    })
+    const spacing = endpoints.length > 1
+      ? Math.min(ENDPOINT_SPACING, Math.max(0, rect.width - 8) / (endpoints.length - 1))
+      : 0
+    endpoints.forEach(({ route, side }, i) => {
+      route[`${side}X`] = centerX + (i - (endpoints.length - 1) / 2) * spacing
+      route[`${side}Y`] = rect.bottom - origin.y
+    })
+  }
+
+  return routes.map((route) => ({
+    id: route.rel.id || `${route.rel._offsetKey}-${route.rel._relationIndex}`,
+    points: `${route.fromX},${route.fromY} ${route.fromX},${route.trackY} ${route.toX},${route.trackY} ${route.toX},${route.toY}`,
+    labelX: (route.fromX + route.toX) / 2,
+    labelY: route.trackY,
+    labelWidth: route.labelWidth,
+    semantic: route.rel.semantic,
+    conceptText: route.conceptText,
+    fromEntityKey: entityKey(route.rel.fromEnt),
+    toEntityKey: entityKey(route.rel.toEnt),
+    _offsetKey: route.rel._offsetKey,
+    _relationIndex: route.rel._relationIndex,
+  }))
+}
 
 function measureAndUpdate() {
   if (!props.scrollContainer) return
 
-  // Temporarily shrink SVG to 0 so it doesn't inflate scrollWidth/scrollHeight
-  if (svgRef.value) {
-    svgRef.value.style.width = '0px'
-    svgRef.value.style.height = '0px'
+  // Temporarily shrink the SVGs to 0 so they don't inflate scrollWidth/scrollHeight
+  const svgs = [lineSvgRef.value, labelSvgRef.value].filter(Boolean)
+  for (const svg of svgs) {
+    svg.style.width = '0px'
+    svg.style.height = '0px'
   }
 
-  // Force reflow to get true content dimensions
-  void props.scrollContainer.offsetHeight
+  curves.value = layoutRoutes()
 
   svgSize.value = {
     width: props.scrollContainer.scrollWidth,
@@ -310,12 +361,20 @@ function measureAndUpdate() {
   }
 
   // Restore SVG size (Vue will also set it via :style binding on next tick)
-  if (svgRef.value) {
-    svgRef.value.style.width = svgSize.value.width + 'px'
-    svgRef.value.style.height = svgSize.value.height + 'px'
+  for (const svg of svgs) {
+    svg.style.width = svgSize.value.width + 'px'
+    svg.style.height = svgSize.value.height + 'px'
   }
+}
 
-  positionTick.value++
+// Coalesce layout requests into one per frame, after Vue has patched the DOM
+let layoutFrame = 0
+function scheduleLayout() {
+  if (layoutFrame) return
+  layoutFrame = requestAnimationFrame(() => {
+    layoutFrame = 0
+    measureAndUpdate()
+  })
 }
 
 function handleRelationClick(curve, event) {
@@ -344,58 +403,49 @@ function handleGlobalClick(event) {
 
 let resizeObserver = null
 
-function onScroll() {
-  positionTick.value++
-}
-
-function onResize() {
-  nextTick(measureAndUpdate)
-}
-
-// Watch for annotation changes to re-render
+// Re-layout when annotations change, the text reflows (container width or
+// content size), or label sizes change through the display toggles.
 watch(
-  () => annotationStore.allRelations,
-  () => nextTick(measureAndUpdate),
+  () => [annotationStore.allRelations, annotationStore.allEntities],
+  scheduleLayout,
   { deep: true },
 )
 
 watch(
-  () => annotationStore.allEntities,
-  () => nextTick(measureAndUpdate),
-  { deep: true },
+  () => [uiStore.showAttributes, uiStore.showAnnotationId],
+  scheduleLayout,
 )
 
 watch(
   () => props.scrollContainer,
-  (container, oldContainer) => {
-    if (oldContainer) {
-      oldContainer.removeEventListener('scroll', onScroll)
-      resizeObserver?.disconnect()
-    }
+  (container) => {
+    resizeObserver?.disconnect()
+    resizeObserver = null
     if (container) {
-      container.addEventListener('scroll', onScroll)
-      resizeObserver = new ResizeObserver(onResize)
+      resizeObserver = new ResizeObserver(scheduleLayout)
       resizeObserver.observe(container)
-      nextTick(measureAndUpdate)
+      const content = container.querySelector('.annotation-container')
+      if (content) resizeObserver.observe(content)
+      scheduleLayout()
     }
   },
   { immediate: true },
 )
 
 onMounted(() => {
-  window.addEventListener('resize', onResize)
+  window.addEventListener('resize', scheduleLayout)
   document.addEventListener('mousedown', handleGlobalClick)
-  nextTick(measureAndUpdate)
+  document.fonts?.ready.then(scheduleLayout)
+  scheduleLayout()
 })
 
 onUnmounted(() => {
   clearRelationHover()
-  window.removeEventListener('resize', onResize)
+  window.removeEventListener('resize', scheduleLayout)
   document.removeEventListener('mousedown', handleGlobalClick)
-  if (props.scrollContainer) {
-    props.scrollContainer.removeEventListener('scroll', onScroll)
-  }
   resizeObserver?.disconnect()
+  cancelAnimationFrame(layoutFrame)
+  clearReservedSpace()
 })
 </script>
 
@@ -405,6 +455,14 @@ onUnmounted(() => {
   top: 0;
   left: 0;
   pointer-events: none;
+}
+
+/* Lines pass behind the text (.annotation-container is z-index 1) */
+.relation-line-layer {
+  z-index: 0;
+}
+
+.relation-label-layer {
   z-index: 10;
 }
 

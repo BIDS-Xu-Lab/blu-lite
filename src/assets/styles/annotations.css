@@ -1,4 +1,7 @@
 .annotation-container {
+  /* Sits above the relation line layer so lines pass behind text and labels */
+  position: relative;
+  z-index: 1;
   line-height: 1.8;
   font-size: 0.95rem;
   cursor: text;
@@ -147,11 +150,6 @@
   background: linear-gradient(135deg, #eff6ff, #dbeafe);
   border: 1px solid #93c5fd;
   color: #1e40af;
-}
-
-/* Extra bottom margin on entity labels that are connected by a relation line */
-.entity-label.relation-connected {
-  margin-bottom: 36px;
 }
 
 @keyframes concept-mapping-blink {

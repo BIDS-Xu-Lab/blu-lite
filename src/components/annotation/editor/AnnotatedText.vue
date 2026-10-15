@@ -32,13 +32,13 @@
           >{{ part.text }}</span>
         </span>
 
-        <!-- Stacked underline bars: one per entity covering this segment -->
+        <!-- Stacked underline bars: one row per entity lane, empty rows keep lanes aligned -->
         <span class="annotated-block-underlines">
           <span
-            v-for="es in block.entities"
-            :key="'ul-' + (es.entity.id || (es.offsetKey + '-' + es.entityIndex))"
+            v-for="(es, lane) in block.lanes"
+            :key="'ul-' + lane"
             class="entity-underline-bar"
-            :style="{ backgroundColor: schemaStore.getEntityColor(es.entity.semantic).border }"
+            :style="es ? { backgroundColor: schemaStore.getEntityColor(es.entity.semantic).border } : null"
           />
         </span>
 
@@ -136,9 +136,8 @@ function splitWithHighlight(text, baseOffset) {
 }
 
 function segmentStyle(segment) {
-  if (segment.entities.length === 0) return {}
-  const primary = segment.entities[0]
-  const color = schemaStore.getEntityColor(primary.entity.semantic)
+  if (!segment.innermost) return {}
+  const color = schemaStore.getEntityColor(segment.innermost.entity.semantic)
   return {
     backgroundColor: color.bg,
   }

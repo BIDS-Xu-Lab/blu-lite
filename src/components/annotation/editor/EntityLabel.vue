@@ -5,7 +5,6 @@
       'relation-target-blink': isRelationTarget,
       'relation-from-highlight': isRelationFrom,
       'relation-mode-dimmed': isRelationModeDimmed,
-      'relation-connected': isInRelation,
       'concept-mapping-blink': isConceptMappingTarget,
       'segment-hovered': isRelationLinkedHover,
     }"
@@ -13,6 +12,7 @@
     :data-entity-id="entity.id"
     :data-entity-begin="entity.begin"
     :data-entity-end="entity.end"
+    :data-entity-semantic="entity.semantic"
     @click.stop="handleClick"
     @mouseenter="uiStore.setHoveredEntityId(entity.id)"
     @mouseleave="uiStore.setHoveredEntityId(null)"
@@ -87,10 +87,6 @@ const isRelationFrom = computed(() => {
   if (!annotationStore.relationMode || !annotationStore.pendingRelation) return false
   const fromEnt = annotationStore.pendingRelation.fromEntity
   return props.entity.begin === fromEnt.begin && props.entity.end === fromEnt.end && props.entity.semantic === fromEnt.semantic
-})
-
-const isInRelation = computed(() => {
-  return annotationStore.isEntityInRelation(props.entity)
 })
 
 const isRelationModeDimmed = computed(() => {

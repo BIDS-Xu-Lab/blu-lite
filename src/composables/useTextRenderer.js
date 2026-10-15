@@ -21,8 +21,21 @@ export function useTextRenderer(content, indexes, candidates = ref([])) {
           entity,
           offsetKey,
           entityIndex: ei,
+          lane: 0,
         })
       }
+    }
+
+    // Give each entity a fixed underline lane so its bar stays on the same row
+    // across every segment it covers. Greedy interval coloring: outer (longer)
+    // spans claim the upper lanes, nested spans stack below them.
+    entitySpans.sort((a, b) => a.begin - b.begin || b.end - a.end)
+    const laneEnds = []
+    for (const span of entitySpans) {
+      let lane = laneEnds.findIndex((end) => end <= span.begin)
+      if (lane === -1) lane = laneEnds.length
+      laneEnds[lane] = span.end
+      span.lane = lane
     }
 
     for (const candidate of candidates.value || []) {
@@ -80,16 +93,27 @@ export function useTextRenderer(content, indexes, candidates = ref([])) {
       } else if (seg.entities.length > 0) {
         // Each annotated segment is its own block.
         // labelEntities: only entities whose begin == seg.start (anchored here).
-        // entities: all entities covering this segment (for underline bars).
+        // lanes: underline bars indexed by entity lane; null keeps an empty row
+        //   so bars of the same entity line up across neighbouring segments.
+        // innermost: the shortest covering entity, used for the background so
+        //   nested spans stand out from the span that contains them.
         const labelEntities = seg.entities.filter(
           (es) => es.entity.begin === seg.start,
         )
+        const lanes = []
+        let innermost = seg.entities[0]
+        for (const es of seg.entities) {
+          lanes[es.lane] = es
+          if (es.end - es.begin < innermost.end - innermost.begin) innermost = es
+        }
         blocks.push({
           type: 'annotated',
           start: seg.start,
           end: seg.end,
           text: seg.text,
           entities: seg.entities,
+          lanes: Array.from(lanes, (es) => es ?? null),
+          innermost,
           labelEntities,
         })
         i++
